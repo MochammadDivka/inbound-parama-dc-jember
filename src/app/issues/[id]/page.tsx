@@ -37,9 +37,13 @@ export default function IssueDetailPage({ params }: { params: { id: string } }) 
   const [reqReason, setReqReason] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
-  const isAdmin = session?.user.role === 'ADMIN';
+  const cleanString = (str: any) => String(str ?? '').trim().toLowerCase();
   const canEdit = issue && issue.status === 'OPEN' && (
-    isAdmin || issue.created_by === session?.user.name
+    isAdmin || 
+    cleanString(issue.created_by) === cleanString(session?.user.name) ||
+    cleanString(issue.created_by) === cleanString(session?.user.username) ||
+    cleanString(issue.created_by) === cleanString(session?.user.id) ||
+    cleanString(issue.created_by_name) === cleanString(session?.user.name)
   );
   const remaining = issue?.remaining_selisih_pcs ?? issue?.selisih_pcs ?? 0;
   const isBalanced = remaining === 0;

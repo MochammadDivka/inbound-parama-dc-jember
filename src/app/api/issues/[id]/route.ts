@@ -29,7 +29,14 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
 
   // Permission: USER hanya bisa edit issue milik sendiri (OPEN)
   if (session.user.role === 'USER') {
-    if (issue.created_by !== session.user.name || issue.status !== 'OPEN')
+    const cleanString = (str: any) => String(str ?? '').trim().toLowerCase();
+    const isOwner =
+      cleanString(issue.created_by) === cleanString(session.user.name) ||
+      cleanString(issue.created_by) === cleanString(session.user.username) ||
+      cleanString(issue.created_by) === cleanString(session.user.id) ||
+      cleanString(issue.created_by_name) === cleanString(session.user.name);
+
+    if (!isOwner || issue.status !== 'OPEN')
       return NextResponse.json({ success: false, error: { code: 'FORBIDDEN', message: 'Tidak dapat mengedit issue ini' } }, { status: 403 });
   }
 
@@ -68,7 +75,14 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
     const body2 = await request.clone().json().catch(() => ({})) as { action?: string };
     if (body2?.action === 'update-photo') {
       // USER hanya bisa update foto untuk issue milik sendiri
-      if (currentIssue.data.created_by !== session.user.name) {
+      const cleanString = (str: any) => String(str ?? '').trim().toLowerCase();
+      const isOwner =
+        cleanString(currentIssue.data.created_by) === cleanString(session.user.name) ||
+        cleanString(currentIssue.data.created_by) === cleanString(session.user.username) ||
+        cleanString(currentIssue.data.created_by) === cleanString(session.user.id) ||
+        cleanString(currentIssue.data.created_by_name) === cleanString(session.user.name);
+
+      if (!isOwner) {
         return NextResponse.json({ success: false, error: { code: 'FORBIDDEN', message: 'Akses ditolak' } }, { status: 403 });
       }
     } else if (body2?.action !== 'request-solved') {
