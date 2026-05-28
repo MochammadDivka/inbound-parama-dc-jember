@@ -37,6 +37,7 @@ export default function IssueDetailPage({ params }: { params: { id: string } }) 
   const [reqReason, setReqReason] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
+  const isAdmin = session?.user.role === 'ADMIN';
   const cleanString = (str: any) => String(str ?? '').trim().toLowerCase();
   const canEdit = issue && issue.status === 'OPEN' && (
     isAdmin || 
