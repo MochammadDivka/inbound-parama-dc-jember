@@ -67,6 +67,7 @@ export interface Issue {
   created_by: string; // nama user (bukan ID)
   created_at: string;
   updated_by?: string; // nama user (bukan ID)
+  updated_by_name?: string;
   updated_at?: string;
   input_source: InputSource;
   // Populated fields (backward compat)

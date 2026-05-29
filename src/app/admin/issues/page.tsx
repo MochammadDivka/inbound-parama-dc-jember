@@ -6,7 +6,7 @@ import { useSearchParams } from 'next/navigation';
 import { AdminLayout } from '@/components/layout/AdminLayout';
 import { IssueStatusBadge, SelisihDisplay } from '@/components/ui/Badge';
 import { Issue } from '@/types';
-import { formatRelativeTime, formatDate } from '@/lib/utils';
+import { formatRelativeTime, formatDate, formatDateShort } from '@/lib/utils';
 import { ISSUE_CATEGORIES } from '@/lib/constants';
 import { Search, Filter, ChevronDown, ChevronUp, X, Eye } from 'lucide-react';
 import Link from 'next/link';
@@ -223,8 +223,22 @@ function AdminIssuesContent() {
                 <td style={{ fontSize: 13, color: 'var(--color-text-secondary)' }}>{issue.kategori_issue}</td>
                 <td><SelisihDisplay value={issue.remaining_selisih_pcs !== undefined && issue.remaining_selisih_pcs !== null ? Number(issue.remaining_selisih_pcs) : issue.selisih_pcs} /></td>
                 <td><IssueStatusBadge status={issue.status} /></td>
-                <td style={{ fontSize: 13, color: 'var(--color-text-secondary)' }}>{formatDate(issue.updated_at || issue.created_at)}</td>
-                <td style={{ fontSize: 13 }}>{issue.created_by_name || issue.created_by}</td>
+                <td style={{ fontSize: 13, color: 'var(--color-text-secondary)' }}>
+                  <div>{formatDateShort(issue.created_at)}</div>
+                  {issue.updated_at && issue.updated_at !== issue.created_at && (
+                    <div style={{ fontSize: 11, color: 'var(--color-primary)', marginTop: 2, fontWeight: 500 }}>
+                      (merge/update {formatDateShort(issue.updated_at)})
+                    </div>
+                  )}
+                </td>
+                <td style={{ fontSize: 13 }}>
+                  <div>{issue.created_by_name || issue.created_by}</div>
+                  {issue.updated_by && issue.updated_by !== issue.created_by && (
+                    <div style={{ fontSize: 11, color: 'var(--color-text-muted)', marginTop: 2 }}>
+                      (update/merge by {issue.updated_by_name || issue.updated_by})
+                    </div>
+                  )}
+                </td>
                 <td>
                   <Link href={`/admin/issues/${issue.issue_id}`} className="btn btn-ghost btn-sm" style={{ textDecoration: 'none' }}>
                     <Eye size={14} />

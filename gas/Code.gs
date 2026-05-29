@@ -224,6 +224,7 @@ function getIssues(params) {
     i.created_by_name = userMap[i.created_by] || i.created_by;
     i.solved_by_name = i.solved_by ? (userMap[i.solved_by] || i.solved_by) : null;
     i.cancelled_by_name = i.cancelled_by ? (userMap[i.cancelled_by] || i.cancelled_by) : null;
+    i.updated_by_name = i.updated_by ? (userMap[i.updated_by] || i.updated_by) : null;
     i.qty_system_pcs = Number(i.qty_system_pcs);
     i.qty_fisik_pcs = Number(i.qty_fisik_pcs);
     i.selisih_pcs = Number(i.selisih_pcs);
@@ -327,6 +328,7 @@ function getIssue(id) {
   users.forEach(function(u) { userMap[u.user_id] = u.nama; });
   issue.created_by_name = userMap[issue.created_by] || issue.created_by;
   if (issue.solved_by) issue.solved_by_name = userMap[issue.solved_by] || issue.solved_by;
+  if (issue.updated_by) issue.updated_by_name = userMap[issue.updated_by] || issue.updated_by;
   issue.qty_system_pcs = Number(issue.qty_system_pcs);
   issue.qty_fisik_pcs = Number(issue.qty_fisik_pcs);
   issue.selisih_pcs = Number(issue.selisih_pcs);

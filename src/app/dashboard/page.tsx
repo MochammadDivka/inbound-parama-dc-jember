@@ -208,11 +208,16 @@ function IssueCard({ issue }: { issue: Issue }) {
         <div style={{ fontWeight: 700, fontSize: 15, color: 'var(--color-text)', marginBottom: 2 }}>
           {issue.nama_barang}
         </div>
-        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, color: 'var(--color-text-secondary)' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', fontSize: 13, color: 'var(--color-text-secondary)' }}>
           <span>{issue.sku}{issue.batch ? ` · ${issue.batch}` : ''}</span>
-          <span style={{ fontSize: 11, color: 'var(--color-text-muted)', fontWeight: 500 }}>
-            👤 {issue.created_by_name ?? issue.created_by}
-          </span>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', fontSize: 11, color: 'var(--color-text-muted)', marginTop: -2 }}>
+            <span style={{ fontWeight: 500 }}>👤 {issue.created_by_name ?? issue.created_by}</span>
+            {issue.updated_by && issue.updated_by !== issue.created_by && (
+              <span style={{ fontSize: 10, color: 'var(--color-text-secondary)', marginTop: 1 }}>
+                (by {issue.updated_by_name || issue.updated_by})
+              </span>
+            )}
+          </div>
         </div>
       </div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -221,7 +226,14 @@ function IssueCard({ issue }: { issue: Issue }) {
           <span style={{ fontSize: 12, color: 'var(--color-text-muted)' }}>{issue.kategori_issue}</span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 4, color: 'var(--color-text-muted)' }}>
-          <span style={{ fontSize: 11 }}>{formatRelativeTime(issue.updated_at || issue.created_at)}</span>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', fontSize: 11 }}>
+            <span>{formatRelativeTime(issue.created_at)}</span>
+            {issue.updated_at && issue.updated_at !== issue.created_at && (
+              <span style={{ fontSize: 10, color: 'var(--color-primary)', fontWeight: 500, marginTop: 1 }}>
+                (merge/update {formatRelativeTime(issue.updated_at)})
+              </span>
+            )}
+          </div>
           <ChevronRight size={14} />
         </div>
       </div>
