@@ -87,16 +87,15 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
   }
 
   // Strict duplicate check before updating SKU or Batch
-  if (validated.sku || validated.batch) {
-    const sku = validated.sku ?? existing.data.sku;
-    const batch = (validated.batch ?? existing.data.batch).toUpperCase();
-    const dup = await dsCheckDuplicateCZ(sku, batch, params.id);
+  if (validated.sku) {
+    const sku = validated.sku;
+    const dup = await dsCheckDuplicateCZ(sku, undefined, params.id);
     if (dup.isDuplicate) {
       return NextResponse.json({
         success: false,
         error: {
           code: 'DUPLICATE_CZ',
-          message: `CZ record dengan SKU ${sku} dan Batch ${batch} sudah ada dan aktif`,
+          message: `CZ record dengan SKU ${sku} sudah ada dan aktif`,
           details: { existing_id: dup.existing_id }
         }
       }, { status: 409 });

@@ -334,15 +334,15 @@ export async function dsGetCZById(id: string): Promise<GASResponse<CZRecord>> {
 }
 
 export async function dsCheckDuplicateCZ(
-  sku: string, batch: string, exclude_id?: string
+  sku: string, batch?: string, exclude_id?: string
 ): Promise<{ isDuplicate: boolean; existing_id: string | null }> {
   if (isGASEnabled) {
-    const res = await gas.checkDuplicateCZ(sku, batch, exclude_id) as GASResponse<{ isDuplicate: boolean; existing_id: string | null }>;
+    const res = await gas.checkDuplicateCZ(sku, batch || '', exclude_id) as GASResponse<{ isDuplicate: boolean; existing_id: string | null }>;
     return res.data ?? { isDuplicate: false, existing_id: null };
   }
   const records = mock.getCZRecords();
   const dup = records.find(
-    (c) => c.sku === sku && c.batch === batch && c.status === 'OPEN' && (exclude_id ? c.cz_id !== exclude_id : true)
+    (c) => c.sku === sku && c.status === 'OPEN' && (exclude_id ? c.cz_id !== exclude_id : true)
   );
   return { isDuplicate: !!dup, existing_id: dup?.cz_id ?? null };
 }

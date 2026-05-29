@@ -619,11 +619,10 @@ function getCZRecord(id) {
 }
 
 function checkDuplicateCZ(params) {
-  if (!params.sku || !params.batch) return { success: true, data: { isDuplicate: false } };
+  if (!params.sku) return { success: true, data: { isDuplicate: false } };
   var records = sheetToObjects(getSheet(SHEETS.CZ));
   var dup = records.find(function(c) {
     return String(c.sku || '').trim() === String(params.sku || '').trim() &&
-           String(c.batch || '').trim().toUpperCase() === String(params.batch || '').trim().toUpperCase() &&
            c.status === 'OPEN' &&
            (params.exclude_id ? c.cz_id !== params.exclude_id : true);
   });
@@ -663,18 +662,17 @@ function solveCZ(id, body) {
 function updateCZ(id, body) {
   var now = new Date().toISOString();
 
-  if (body.sku || body.batch) {
+  if (body.sku !== undefined) {
     var existingCZRes = getCZRecord(id);
     if (existingCZRes.success && existingCZRes.data) {
-      var currentSku = body.sku !== undefined ? body.sku : existingCZRes.data.sku;
-      var currentBatch = body.batch !== undefined ? body.batch.toUpperCase() : existingCZRes.data.batch;
-      var dupCheck = checkDuplicateCZ({ sku: currentSku, batch: currentBatch, exclude_id: id });
+      var currentSku = body.sku;
+      var dupCheck = checkDuplicateCZ({ sku: currentSku, exclude_id: id });
       if (dupCheck.data && dupCheck.data.isDuplicate) {
         return {
           success: false,
           error: {
             code: 'DUPLICATE_CZ',
-            message: 'CZ record duplikat dengan SKU & Batch aktif lainnya',
+            message: 'CZ record duplikat dengan SKU aktif lainnya',
             details: { existing_id: dupCheck.data.existing_id }
           }
         };

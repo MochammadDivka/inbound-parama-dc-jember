@@ -50,9 +50,9 @@ export async function POST(request: NextRequest) {
   }
 
   // Server-side duplicate check
-  const dup = await dsCheckDuplicateCZ(validated.sku, validated.batch);
+  const dup = await dsCheckDuplicateCZ(validated.sku, undefined);
   if (dup.isDuplicate)
-    return NextResponse.json({ success: false, error: { code: 'DUPLICATE_CZ', message: `CZ record dengan SKU ${validated.sku} dan Batch ${validated.batch} sudah ada`, details: { existing_id: dup.existing_id } } }, { status: 409 });
+    return NextResponse.json({ success: false, error: { code: 'DUPLICATE_CZ', message: `CZ record dengan SKU ${validated.sku} sudah ada`, details: { existing_id: dup.existing_id } } }, { status: 409 });
 
   const result = await dsCreateCZ({
     ...validated,

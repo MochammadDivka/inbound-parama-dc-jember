@@ -10,12 +10,11 @@ export async function GET(request: NextRequest) {
 
   const { searchParams } = new URL(request.url);
   const sku = searchParams.get('sku')?.trim() ?? '';
-  const batch = searchParams.get('batch')?.trim() ?? '';
   const exclude_id = searchParams.get('exclude_id')?.trim() ?? '';
 
-  if (!sku || !batch)
+  if (!sku)
     return NextResponse.json({ success: true, data: { isDuplicate: false } });
 
-  const result = await dsCheckDuplicateCZ(sku, batch, exclude_id || undefined);
+  const result = await dsCheckDuplicateCZ(sku, undefined, exclude_id || undefined);
   return NextResponse.json({ success: true, data: result });
 }

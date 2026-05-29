@@ -19,24 +19,23 @@ export default function NewCZPage() {
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  const checkDuplicate = async (skuVal: string, batchVal: string) => {
+  const checkDuplicate = async (skuVal: string) => {
     const s = skuVal.trim();
-    const b = batchVal.trim();
-    if (!s || !b) {
+    if (!s) {
       setDuplicate(null);
       return;
     }
     setCheckingDup(true);
     try {
-      const res = await fetch(`/api/cz/check-duplicate?sku=${encodeURIComponent(s)}&batch=${encodeURIComponent(b)}`);
+      const res = await fetch(`/api/cz/check-duplicate?sku=${encodeURIComponent(s)}`);
       const data = await res.json();
       if (data.success && data.data.isDuplicate) {
         setDuplicate({
           existing_id: data.data.existing_id,
           sku: s,
-          batch: b
+          batch: ''
         });
-        toast.warning('CZ duplikat terdeteksi! SKU dan Batch ini sudah ada yang aktif (OPEN).');
+        toast.warning('CZ duplikat terdeteksi! SKU ini sudah ada yang aktif (OPEN).');
       } else {
         setDuplicate(null);
       }
@@ -51,7 +50,7 @@ export default function NewCZPage() {
     const finalValue = field === 'batch' ? value.toUpperCase() : value;
     setForm((f) => ({ ...f, [field]: finalValue }));
     if (errors[field]) setErrors((e) => { const n = { ...e }; delete n[field]; return n; });
-    if (field === 'sku' || field === 'batch') {
+    if (field === 'sku') {
       setDuplicate(null);
     }
   };
@@ -64,8 +63,8 @@ export default function NewCZPage() {
     if (!form.qty_pcs) errs.qty_pcs = 'Qty wajib diisi';
     if (parseFloat(form.qty_pcs) < 0) errs.qty_pcs = 'Qty tidak boleh negatif';
 
-    if (duplicate && duplicate.sku.trim().toLowerCase() === form.sku.trim().toLowerCase() && duplicate.batch.trim().toLowerCase() === form.batch.trim().toLowerCase()) {
-      errs.batch = 'CZ record dengan SKU & Batch ini sudah ada dan aktif (OPEN).';
+    if (duplicate && duplicate.sku.trim().toLowerCase() === form.sku.trim().toLowerCase()) {
+      errs.sku = 'CZ record dengan SKU ini sudah ada dan aktif (OPEN).';
     }
     setErrors(errs);
     return Object.keys(errs).length === 0;
@@ -86,7 +85,7 @@ export default function NewCZPage() {
         toast.success('CZ record berhasil dibuat!');
         router.push('/dashboard');
       } else if (data.error?.code === 'DUPLICATE_CZ') {
-        setDuplicate({ existing_id: data.error.details.existing_id, sku: form.sku, batch: form.batch });
+        setDuplicate({ existing_id: data.error.details.existing_id, sku: form.sku, batch: '' });
         toast.warning('CZ duplikat terdeteksi!');
       } else {
         toast.error(data.error?.message ?? 'Gagal membuat CZ record');
@@ -121,7 +120,7 @@ export default function NewCZPage() {
           <AlertTriangle size={18} style={{ flexShrink: 0 }} />
           <div style={{ flex: 1 }}>
             <strong>⚠️ CZ Duplikat</strong>
-            <p style={{ marginTop: 4 }}>SKU <strong>{duplicate.sku}</strong> · Batch <strong>{duplicate.batch}</strong> sudah ada dengan status OPEN.</p>
+            <p style={{ marginTop: 4 }}>SKU <strong>{duplicate.sku}</strong> sudah ada dengan status OPEN.</p>
             <Link href={`/cz/${duplicate.existing_id}/edit`} style={{ color: 'var(--color-primary)', fontSize: 13, fontWeight: 600, marginTop: 4, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
               <ExternalLink size={13} />
               Lihat {duplicate.existing_id}
@@ -137,7 +136,7 @@ export default function NewCZPage() {
             <input className={`input-field ${errors.sku ? 'input-error' : ''}`} type="text"
               placeholder="Kode SKU" value={form.sku} 
               onChange={(e) => handleChange('sku', e.target.value)}
-              onBlur={() => checkDuplicate(form.sku, form.batch)} />
+              onBlur={() => checkDuplicate(form.sku)} />
             {checkingDup && (
               <span className="spinner" style={{ position: 'absolute', right: 12, top: 12, width: 16, height: 16 }} />
             )}
@@ -154,8 +153,7 @@ export default function NewCZPage() {
           <label className="label label-required">Batch / Lot</label>
           <input className={`input-field ${errors.batch ? 'input-error' : ''}`} type="text"
             placeholder="Nomor batch (wajib untuk CZ)" value={form.batch} 
-            onChange={(e) => handleChange('batch', e.target.value)}
-            onBlur={() => checkDuplicate(form.sku, form.batch)} />
+            onChange={(e) => handleChange('batch', e.target.value)} />
           {errors.batch && <p className="error-text">{errors.batch}</p>}
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
