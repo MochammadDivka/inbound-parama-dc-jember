@@ -109,7 +109,9 @@ export async function dsGetIssues(params: IssueListParams): Promise<GASResponse<
       if (sortField === 'created_at' || sortField === 'solved_at' || sortField === 'cancelled_at' || sortField === 'req_solved_at') {
         const dateA = new Date(valA).getTime();
         const dateB = new Date(valB).getTime();
-        return sortOrder === 'asc' ? dateA - dateB : dateB - dateA;
+        const safeA = isNaN(dateA) ? 0 : dateA;
+        const safeB = isNaN(dateB) ? 0 : dateB;
+        return sortOrder === 'asc' ? safeA - safeB : safeB - safeA;
       }
 
       // Number sorting

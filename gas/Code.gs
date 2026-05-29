@@ -273,6 +273,8 @@ function getIssues(params) {
       if (sortField === 'created_at' || sortField === 'solved_at' || sortField === 'cancelled_at' || sortField === 'req_solved_at') {
         var dateA = valA ? new Date(valA).getTime() : 0;
         var dateB = valB ? new Date(valB).getTime() : 0;
+        if (isNaN(dateA)) dateA = 0;
+        if (isNaN(dateB)) dateB = 0;
         return sortOrder === 'asc' ? dateA - dateB : dateB - dateA;
       }
 
