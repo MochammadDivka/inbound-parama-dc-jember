@@ -49,7 +49,6 @@ export async function GET(request: NextRequest) {
   };
 
   const rows = issues.map((i: Issue) => ({
-    'Issue ID': i.issue_id,
     'HU': i.hu ?? '',
     'DO': i.do_number ?? '',
     'SKU': i.sku,

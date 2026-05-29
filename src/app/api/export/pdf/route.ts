@@ -70,14 +70,13 @@ export async function GET(request: NextRequest) {
   }
   doc.setTextColor(0);
 
-  const tableHead = [['Issue ID', 'SKU', 'Nama Barang', 'Batch', 'HU', 'DO', 'Sys', 'Fisik', 'Selisih', 'Kategori', 'Status', 'Dibuat Oleh', 'Tgl', 'Storage']];
+  const tableHead = [['HU', 'SKU', 'Nama Barang', 'Batch', 'DO', 'Sys', 'Fisik', 'Selisih', 'Kategori', 'Status', 'Dibuat Oleh', 'Tgl', 'Storage']];
 
   const tableBody: string[][] = issues.map((i: Issue) => [
-    i.issue_id,
+    i.hu ?? '',
     i.sku ?? '',
     i.nama_barang,
     i.batch ?? '',
-    i.hu ?? '',
     i.do_number ?? '',
     String(i.qty_system_pcs),
     String(i.qty_fisik_pcs),
@@ -97,18 +96,18 @@ export async function GET(request: NextRequest) {
     headStyles: { fillColor: [26, 86, 219], textColor: 255, fontStyle: 'bold', fontSize: 7 },
     alternateRowStyles: { fillColor: [248, 250, 252] },
     columnStyles: {
-      0: { cellWidth: 22 }, // Issue ID
+      0: { cellWidth: 22 }, // HU
       2: { cellWidth: 24 }, // Nama Barang
-      9: { cellWidth: 24 }, // Kategori
+      8: { cellWidth: 24 }, // Kategori
     },
     didParseCell: (data) => {
-      if (data.column.index === 8 && data.section === 'body') {
+      if (data.column.index === 7 && data.section === 'body') {
         const val = Number(data.cell.raw);
         if (val < 0) data.cell.styles.textColor = [220, 38, 38];
         else if (val > 0) data.cell.styles.textColor = [5, 150, 105];
         data.cell.styles.fontStyle = 'bold';
       }
-      if (data.column.index === 10 && data.section === 'body') {
+      if (data.column.index === 9 && data.section === 'body') {
         const val = String(data.cell.raw);
         if (val === 'OPEN') data.cell.styles.textColor = [217, 119, 6];
         else if (val === 'SOLVED') data.cell.styles.textColor = [5, 150, 105];

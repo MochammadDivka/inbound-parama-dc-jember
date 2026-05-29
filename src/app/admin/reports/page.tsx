@@ -38,7 +38,6 @@ export default function AdminReportsPage() {
       const issues = data.data;
       
       const rows = issues.map((i: any) => ({
-        'Issue ID': i.issue_id,
         'HU': i.hu ?? '',
         'DO': i.do_number ?? '',
         'SKU': i.sku,
@@ -107,11 +106,10 @@ export default function AdminReportsPage() {
       if (statusFilter !== 'ALL') doc.text(`Filter Status: ${statusFilter}`, 14, 32);
       
       const rows = data.data.map((i: any) => [
-        i.issue_id,
+        i.hu ?? '',
         i.sku,
         i.nama_barang,
         i.batch ?? '',
-        i.hu ?? '',
         i.do_number ?? '',
         String(i.qty_system_pcs),
         String(i.qty_fisik_pcs),
@@ -124,7 +122,7 @@ export default function AdminReportsPage() {
       
       autoTable(doc, {
         startY: 38,
-        head: [['Issue ID', 'SKU', 'Nama Barang', 'Batch', 'HU', 'DO', 'Sys', 'Fisik', 'Selisih', 'Kategori', 'Status', 'Dibuat', 'Tanggal']],
+        head: [['HU', 'SKU', 'Nama Barang', 'Batch', 'DO', 'Sys', 'Fisik', 'Selisih', 'Kategori', 'Status', 'Dibuat', 'Tanggal']],
         body: rows,
         styles: { fontSize: 7, cellPadding: 1.5 },
         headStyles: { fillColor: [26, 86, 219], textColor: 255, fontStyle: 'bold', fontSize: 7 },
@@ -247,7 +245,7 @@ export default function AdminReportsPage() {
           }}>
             <strong>ℹ️ Yang disertakan dalam export:</strong>
             <ul style={{ marginTop: 8, paddingLeft: 18 }}>
-              <li>Issue ID, HU, DO, SKU, Nama Barang, Batch</li>
+              <li>HU, DO, SKU, Nama Barang, Batch</li>
               <li>Qty System, Qty Fisik, Selisih</li>
               <li>Kategori, Keterangan, Status</li>
               <li>Dibuat Oleh & Tanggal</li>
