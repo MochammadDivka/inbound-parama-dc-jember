@@ -3,7 +3,33 @@
 import { useState } from 'react';
 import { AdminLayout } from '@/components/layout/AdminLayout';
 import { useToast } from '@/components/ui/ToastProvider';
-import { FileSpreadsheet, FileText, Download, Filter } from 'lucide-react';
+import { FileSpreadsheet, FileText, Filter, Settings } from 'lucide-react';
+
+interface ColumnConfig {
+  key: string;
+  label: string;
+  pdfLabel: string;
+  getValue: (item: any) => string | number;
+}
+
+const EXPORT_COLUMNS: ColumnConfig[] = [
+  { key: 'hu', label: 'HU', pdfLabel: 'HU', getValue: (i) => i.hu ?? '—' },
+  { key: 'do_number', label: 'DO', pdfLabel: 'DO', getValue: (i) => i.do_number ?? '—' },
+  { key: 'sku', label: 'SKU', pdfLabel: 'SKU', getValue: (i) => i.sku ?? '—' },
+  { key: 'nama_barang', label: 'Nama Barang', pdfLabel: 'Nama Barang', getValue: (i) => i.nama_barang ?? '' },
+  { key: 'batch', label: 'Batch', pdfLabel: 'Batch', getValue: (i) => i.batch ?? '—' },
+  { key: 'qty_system_pcs', label: 'Qty System (PCS)', pdfLabel: 'Sys', getValue: (i) => i.qty_system_pcs ?? 0 },
+  { key: 'qty_fisik_pcs', label: 'Qty Fisik (PCS)', pdfLabel: 'Fisik', getValue: (i) => i.qty_fisik_pcs ?? 0 },
+  { key: 'selisih_pcs', label: 'Selisih (PCS)', pdfLabel: 'Selisih', getValue: (i) => (i.selisih_pcs > 0 ? '+' : '') + i.selisih_pcs },
+  { key: 'kategori_issue', label: 'Kategori', pdfLabel: 'Kategori', getValue: (i) => i.kategori_issue ?? '' },
+  { key: 'keterangan', label: 'Keterangan', pdfLabel: 'Keterangan', getValue: (i) => i.keterangan ?? '—' },
+  { key: 'status', label: 'Status', pdfLabel: 'Status', getValue: (i) => i.status ?? '' },
+  { key: 'storage_tujuan', label: 'Storage Tujuan', pdfLabel: 'Storage', getValue: (i) => i.storage_tujuan ?? '—' },
+  { key: 'created_by', label: 'Dibuat Oleh', pdfLabel: 'Dibuat', getValue: (i) => i.created_by_name ?? i.created_by ?? '—' },
+  { key: 'created_at', label: 'Dibuat Pada', pdfLabel: 'Tanggal', getValue: (i) => i.created_at ? new Date(i.created_at).toLocaleDateString('id-ID') : '—' },
+  { key: 'solved_by', label: 'Diselesaikan Oleh', pdfLabel: 'Diselesaikan', getValue: (i) => i.solved_by_name ?? i.solved_by ?? '—' },
+  { key: 'solved_at', label: 'Diselesaikan Pada', pdfLabel: 'Tgl Selesai', getValue: (i) => i.solved_at ? new Date(i.solved_at).toLocaleDateString('id-ID') : '—' },
+];
 
 export default function AdminReportsPage() {
   const toast = useToast();
@@ -11,8 +37,16 @@ export default function AdminReportsPage() {
   const [dateTo, setDateTo] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [exporting, setExporting] = useState<string | null>(null);
+  
+  // State for column selection — all checked by default
+  const [selectedKeys, setSelectedKeys] = useState<string[]>(EXPORT_COLUMNS.map(col => col.key));
 
   const handleExportExcel = async () => {
+    if (selectedKeys.length === 0) {
+      toast.error('Pilih minimal satu kolom untuk diekspor!');
+      return;
+    }
+
     setExporting('excel');
     toast.info('Mempersiapkan export Excel...');
     
@@ -37,24 +71,15 @@ export default function AdminReportsPage() {
       const XLSX = await import('xlsx');
       const issues = data.data;
       
-      const rows = issues.map((i: any) => ({
-        'HU': i.hu ?? '',
-        'DO': i.do_number ?? '',
-        'SKU': i.sku,
-        'Nama Barang': i.nama_barang,
-        'Batch': i.batch ?? '',
-        'Qty System (PCS)': i.qty_system_pcs,
-        'Qty Fisik (PCS)': i.qty_fisik_pcs,
-        'Selisih (PCS)': i.selisih_pcs,
-        'Kategori': i.kategori_issue,
-        'Keterangan': i.keterangan ?? '',
-        'Status': i.status,
-        'Storage Tujuan': i.storage_tujuan ?? '',
-        'Dibuat Oleh': i.created_by_name ?? i.created_by,
-        'Dibuat Pada': i.created_at ? new Date(i.created_at).toLocaleString('id-ID') : '',
-        'Diselesaikan Oleh': i.solved_by_name ?? i.solved_by ?? '',
-        'Diselesaikan Pada': i.solved_at ? new Date(i.solved_at).toLocaleString('id-ID') : '',
-      }));
+      const rows = issues.map((i: any) => {
+        const row: any = {};
+        EXPORT_COLUMNS.forEach(col => {
+          if (selectedKeys.includes(col.key)) {
+            row[col.label] = col.getValue(i);
+          }
+        });
+        return row;
+      });
       
       const ws = XLSX.utils.json_to_sheet(rows);
       const wb = XLSX.utils.book_new();
@@ -71,6 +96,11 @@ export default function AdminReportsPage() {
   };
 
   const handleExportPDF = async () => {
+    if (selectedKeys.length === 0) {
+      toast.error('Pilih minimal satu kolom untuk diekspor!');
+      return;
+    }
+
     setExporting('pdf');
     toast.info('Mempersiapkan export PDF...');
     
@@ -105,24 +135,14 @@ export default function AdminReportsPage() {
       doc.text(`Laporan Issues | Dicetak: ${today}`, 14, 26);
       if (statusFilter !== 'ALL') doc.text(`Filter Status: ${statusFilter}`, 14, 32);
       
-      const rows = data.data.map((i: any) => [
-        i.hu ?? '',
-        i.sku,
-        i.nama_barang,
-        i.batch ?? '',
-        i.do_number ?? '',
-        String(i.qty_system_pcs),
-        String(i.qty_fisik_pcs),
-        (i.selisih_pcs > 0 ? '+' : '') + i.selisih_pcs,
-        i.kategori_issue,
-        i.status,
-        i.created_by_name ?? i.created_by,
-        i.created_at ? new Date(i.created_at).toLocaleDateString('id-ID') : '',
-      ]);
+      const headers = EXPORT_COLUMNS.filter(col => selectedKeys.includes(col.key)).map(col => col.pdfLabel);
+      const rows = data.data.map((i: any) => 
+        EXPORT_COLUMNS.filter(col => selectedKeys.includes(col.key)).map(col => String(col.getValue(i)))
+      );
       
       autoTable(doc, {
         startY: 38,
-        head: [['HU', 'SKU', 'Nama Barang', 'Batch', 'DO', 'Sys', 'Fisik', 'Selisih', 'Kategori', 'Status', 'Dibuat', 'Tanggal']],
+        head: [headers],
         body: rows,
         styles: { fontSize: 7, cellPadding: 1.5 },
         headStyles: { fillColor: [26, 86, 219], textColor: 255, fontStyle: 'bold', fontSize: 7 },
@@ -147,7 +167,11 @@ export default function AdminReportsPage() {
     }
   };
 
-
+  const handleToggleColumn = (key: string) => {
+    setSelectedKeys((prev) =>
+      prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]
+    );
+  };
 
   return (
     <AdminLayout>
@@ -191,12 +215,96 @@ export default function AdminReportsPage() {
           </div>
         </div>
 
-        {/* Export Buttons */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+        {/* Right side: Column Selection & Export Buttons */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+          
+          {/* Column Selection Card */}
+          <div className="card" style={{ padding: 24 }}>
+            <h2 style={{ fontSize: 16, fontWeight: 700, marginBottom: 6, display: 'flex', alignItems: 'center', gap: 8 }}>
+              <Settings size={18} color="var(--color-primary)" />
+              Pilih Kolom Laporan
+            </h2>
+            <p style={{ fontSize: 13, color: 'var(--color-text-muted)', marginBottom: 16 }}>
+              Pilih kolom apa saja yang ingin Anda sertakan di dalam file ekspor Excel atau PDF.
+            </p>
+            
+            {/* Quick selectors */}
+            <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
+              <button 
+                className="btn btn-ghost btn-sm" 
+                onClick={() => setSelectedKeys(EXPORT_COLUMNS.map(c => c.key))}
+                style={{ fontSize: 12 }}
+              >
+                Pilih Semua
+              </button>
+              <button 
+                className="btn btn-ghost btn-sm" 
+                onClick={() => setSelectedKeys(['hu', 'sku', 'nama_barang', 'selisih_pcs', 'status', 'created_at'])}
+                style={{ fontSize: 12 }}
+              >
+                Default (Utama)
+              </button>
+              <button 
+                className="btn btn-ghost btn-sm" 
+                onClick={() => setSelectedKeys([])}
+                style={{ fontSize: 12, color: 'var(--color-open)' }}
+              >
+                Kosongkan
+              </button>
+            </div>
+
+            {/* Checkbox Grid */}
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))',
+              gap: 12,
+              padding: 16,
+              background: '#F9FAFB',
+              borderRadius: 10,
+              border: '1px solid var(--color-border)',
+            }}>
+              {EXPORT_COLUMNS.map(col => {
+                const checked = selectedKeys.includes(col.key);
+                return (
+                  <label 
+                    key={col.key} 
+                    style={{ 
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      gap: 8, 
+                      cursor: 'pointer', 
+                      fontSize: 13, 
+                      userSelect: 'none',
+                      padding: '4px 6px',
+                      borderRadius: 6,
+                      background: checked ? '#EFF6FF' : 'transparent',
+                      border: checked ? '1px solid #BFDBFE' : '1px solid transparent',
+                      transition: 'all 0.15s ease'
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      onChange={() => handleToggleColumn(col.key)}
+                      style={{ width: 15, height: 15, cursor: 'pointer' }}
+                    />
+                    <span style={{ 
+                      fontWeight: checked ? 600 : 400, 
+                      color: checked ? '#1E40AF' : 'var(--color-text-secondary)' 
+                    }}>
+                      {col.label}
+                    </span>
+                  </label>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Export Action Card */}
           <div className="card" style={{ padding: 24 }}>
             <h2 style={{ fontSize: 16, fontWeight: 700, marginBottom: 6 }}>Export Data</h2>
             <p style={{ fontSize: 13, color: 'var(--color-text-muted)', marginBottom: 20 }}>
-              Data yang diexport mengikuti filter yang dipilih di panel kiri.
+              Data yang diexport mengikuti filter yang dipilih di panel kiri dan pilihan kolom di atas.
             </p>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
               {/* Excel */}
@@ -243,17 +351,14 @@ export default function AdminReportsPage() {
             borderRadius: 12, padding: '16px 20px',
             fontSize: 13, color: '#1E40AF', lineHeight: 1.7,
           }}>
-            <strong>ℹ️ Yang disertakan dalam export:</strong>
+            <strong>ℹ️ Catatan Ekspor Laporan:</strong>
             <ul style={{ marginTop: 8, paddingLeft: 18 }}>
-              <li>HU, DO, SKU, Nama Barang, Batch</li>
-              <li>Qty System, Qty Fisik, Selisih</li>
-              <li>Kategori, Keterangan, Status</li>
-              <li>Dibuat Oleh & Tanggal</li>
-              <li>Diselesaikan Oleh & Tanggal (jika ada)</li>
-              <li>Storage Tujuan</li>
+              <li>Ekspor PDF diatur secara otomatis ke mode lanskap A4.</li>
+              <li>Kolom tabel yang panjang akan menyesuaikan lebar secara proporsional.</li>
+              <li>Anda dapat menyaring status dan rentang waktu sebelum mengekspor data.</li>
             </ul>
             <p style={{ marginTop: 8 }}>
-              ⚠️ Foto bukti tidak disertakan dalam export.
+              ⚠️ Foto bukti tidak disertakan dalam export file ini demi menghemat ukuran dokumen.
             </p>
           </div>
         </div>
