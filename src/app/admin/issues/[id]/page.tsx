@@ -203,13 +203,13 @@ export default function AdminIssueDetailPage({ params }: { params: { id: string 
               ))}
               <div style={{
                 flex: 1, textAlign: 'center', padding: '16px',
-                background: issue.selisih_pcs < 0 ? 'var(--color-cancelled-bg)' : issue.selisih_pcs > 0 ? 'var(--color-solved-bg)' : '#F9FAFB',
+                background: remaining < 0 ? 'var(--color-cancelled-bg)' : remaining > 0 ? 'var(--color-solved-bg)' : '#F9FAFB',
                 borderRadius: 12,
-                border: `1px solid ${issue.selisih_pcs < 0 ? '#FCA5A5' : issue.selisih_pcs > 0 ? '#6EE7B7' : 'var(--color-border)'}`,
+                border: `1px solid ${remaining < 0 ? '#FCA5A5' : remaining > 0 ? '#6EE7B7' : 'var(--color-border)'}`,
               }}>
                 <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Selisih</div>
                 <div style={{ fontSize: 36, fontWeight: 800, marginTop: 4 }}>
-                  <SelisihDisplay value={issue.selisih_pcs} />
+                  <SelisihDisplay value={remaining} />
                 </div>
               </div>
             </div>
@@ -306,6 +306,9 @@ export default function AdminIssueDetailPage({ params }: { params: { id: string 
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12, fontSize: 13 }}>
               <InfoRow label="Dibuat oleh" value={issue.created_by_name ?? issue.created_by} />
               <InfoRow label="Dibuat pada" value={formatDate(issue.created_at)} />
+              {issue.updated_at && issue.updated_at !== issue.created_at && (
+                <InfoRow label="Terakhir diperbarui" value={formatDate(issue.updated_at)} color="var(--color-primary)" />
+              )}
               {issue.solved_by && <InfoRow label="Diselesaikan oleh" value={issue.solved_by_name ?? issue.solved_by} color="var(--color-solved)" />}
               {issue.solved_at && <InfoRow label="Tanggal selesai" value={formatDate(issue.solved_at)} />}
               {issue.cancelled_by && <InfoRow label="Dibatalkan oleh" value={issue.cancelled_by_name ?? issue.cancelled_by} color="var(--color-cancelled)" />}

@@ -259,7 +259,9 @@ function getIssues(params) {
       if (scoreA !== scoreB) {
         return scoreB - scoreA;
       }
-      return new Date(b.created_at) - new Date(a.created_at);
+      var dateA = new Date(a.updated_at || a.created_at || 0).getTime();
+      var dateB = new Date(b.updated_at || b.created_at || 0).getTime();
+      return dateB - dateA;
     });
   } else if (sortField) {
     records.sort(function(a, b) {
@@ -270,9 +272,11 @@ function getIssues(params) {
       if (valB === undefined || valB === null) valB = '';
 
       // Date sorting
-      if (sortField === 'created_at' || sortField === 'solved_at' || sortField === 'cancelled_at' || sortField === 'req_solved_at') {
-        var dateA = valA ? new Date(valA).getTime() : 0;
-        var dateB = valB ? new Date(valB).getTime() : 0;
+      if (sortField === 'created_at' || sortField === 'updated_at' || sortField === 'solved_at' || sortField === 'cancelled_at' || sortField === 'req_solved_at') {
+        var dateAStr = (sortField === 'updated_at' || sortField === 'created_at') ? (a.updated_at || a.created_at) : valA;
+        var dateBStr = (sortField === 'updated_at' || sortField === 'created_at') ? (b.updated_at || b.created_at) : valB;
+        var dateA = dateAStr ? new Date(dateAStr).getTime() : 0;
+        var dateB = dateBStr ? new Date(dateBStr).getTime() : 0;
         if (isNaN(dateA)) dateA = 0;
         if (isNaN(dateB)) dateB = 0;
         return sortOrder === 'asc' ? dateA - dateB : dateB - dateA;
@@ -291,7 +295,11 @@ function getIssues(params) {
       return 0;
     });
   } else {
-    records.sort(function(a, b) { return new Date(b.created_at) - new Date(a.created_at); });
+    records.sort(function(a, b) {
+      var dateA = new Date(a.updated_at || a.created_at || 0).getTime();
+      var dateB = new Date(b.updated_at || b.created_at || 0).getTime();
+      return dateB - dateA;
+    });
   }
 
   // Pagination

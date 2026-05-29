@@ -217,11 +217,11 @@ function IssueCard({ issue }: { issue: Issue }) {
       </div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-          <SelisihDisplay value={issue.selisih_pcs} />
+          <SelisihDisplay value={issue.remaining_selisih_pcs !== undefined && issue.remaining_selisih_pcs !== null ? issue.remaining_selisih_pcs : issue.selisih_pcs} />
           <span style={{ fontSize: 12, color: 'var(--color-text-muted)' }}>{issue.kategori_issue}</span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 4, color: 'var(--color-text-muted)' }}>
-          <span style={{ fontSize: 11 }}>{formatRelativeTime(issue.created_at)}</span>
+          <span style={{ fontSize: 11 }}>{formatRelativeTime(issue.updated_at || issue.created_at)}</span>
           <ChevronRight size={14} />
         </div>
       </div>

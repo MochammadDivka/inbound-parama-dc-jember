@@ -106,9 +106,11 @@ export async function dsGetIssues(params: IssueListParams): Promise<GASResponse<
       if (valB === undefined || valB === null) return -1;
 
       // Date sorting
-      if (sortField === 'created_at' || sortField === 'solved_at' || sortField === 'cancelled_at' || sortField === 'req_solved_at') {
-        const dateA = new Date(valA).getTime();
-        const dateB = new Date(valB).getTime();
+      if (sortField === 'created_at' || sortField === 'updated_at' || sortField === 'solved_at' || sortField === 'cancelled_at' || sortField === 'req_solved_at') {
+        const dateAStr = (sortField === 'updated_at' || sortField === 'created_at') ? (a.updated_at || a.created_at) : valA;
+        const dateBStr = (sortField === 'updated_at' || sortField === 'created_at') ? (b.updated_at || b.created_at) : valB;
+        const dateA = new Date(dateAStr).getTime();
+        const dateB = new Date(dateBStr).getTime();
         const safeA = isNaN(dateA) ? 0 : dateA;
         const safeB = isNaN(dateB) ? 0 : dateB;
         return sortOrder === 'asc' ? safeA - safeB : safeB - safeA;
@@ -127,8 +129,8 @@ export async function dsGetIssues(params: IssueListParams): Promise<GASResponse<
       return 0;
     });
   } else {
-    // Default newest first
-    issues.sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
+    // Default newest first based on active date
+    issues.sort((a, b) => new Date(b.updated_at || b.created_at || 0).getTime() - new Date(a.updated_at || a.created_at || 0).getTime());
   }
 
   const page = params.page ?? 1;

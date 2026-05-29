@@ -221,9 +221,9 @@ function AdminIssuesContent() {
                   </div>
                 </td>
                 <td style={{ fontSize: 13, color: 'var(--color-text-secondary)' }}>{issue.kategori_issue}</td>
-                <td><SelisihDisplay value={issue.selisih_pcs} /></td>
+                <td><SelisihDisplay value={issue.remaining_selisih_pcs !== undefined && issue.remaining_selisih_pcs !== null ? issue.remaining_selisih_pcs : issue.selisih_pcs} /></td>
                 <td><IssueStatusBadge status={issue.status} /></td>
-                <td style={{ fontSize: 13, color: 'var(--color-text-secondary)' }}>{formatDate(issue.created_at)}</td>
+                <td style={{ fontSize: 13, color: 'var(--color-text-secondary)' }}>{formatDate(issue.updated_at || issue.created_at)}</td>
                 <td style={{ fontSize: 13 }}>{issue.created_by_name || issue.created_by}</td>
                 <td>
                   <Link href={`/admin/issues/${issue.issue_id}`} className="btn btn-ghost btn-sm" style={{ textDecoration: 'none' }}>

@@ -20,13 +20,17 @@ const EXPORT_COLUMNS: ColumnConfig[] = [
   { key: 'batch', label: 'Batch', pdfLabel: 'Batch', getValue: (i) => i.batch ?? '—' },
   { key: 'qty_system_pcs', label: 'Qty System (PCS)', pdfLabel: 'Sys', getValue: (i) => i.qty_system_pcs ?? 0 },
   { key: 'qty_fisik_pcs', label: 'Qty Fisik (PCS)', pdfLabel: 'Fisik', getValue: (i) => i.qty_fisik_pcs ?? 0 },
-  { key: 'selisih_pcs', label: 'Selisih (PCS)', pdfLabel: 'Selisih', getValue: (i) => (i.selisih_pcs > 0 ? '+' : '') + i.selisih_pcs },
+  { key: 'selisih_pcs', label: 'Selisih (PCS)', pdfLabel: 'Selisih', getValue: (i) => {
+    const rem = i.remaining_selisih_pcs !== undefined && i.remaining_selisih_pcs !== null ? i.remaining_selisih_pcs : i.selisih_pcs;
+    return (rem > 0 ? '+' : '') + rem;
+  } },
   { key: 'kategori_issue', label: 'Kategori', pdfLabel: 'Kategori', getValue: (i) => i.kategori_issue ?? '' },
   { key: 'keterangan', label: 'Keterangan', pdfLabel: 'Keterangan', getValue: (i) => i.keterangan ?? '—' },
   { key: 'status', label: 'Status', pdfLabel: 'Status', getValue: (i) => i.status ?? '' },
   { key: 'storage_tujuan', label: 'Storage Tujuan', pdfLabel: 'Storage', getValue: (i) => i.storage_tujuan ?? '—' },
   { key: 'created_by', label: 'Dibuat Oleh', pdfLabel: 'Dibuat', getValue: (i) => i.created_by_name ?? i.created_by ?? '—' },
-  { key: 'created_at', label: 'Dibuat Pada', pdfLabel: 'Tanggal', getValue: (i) => i.created_at ? new Date(i.created_at).toLocaleDateString('id-ID') : '—' },
+  { key: 'created_at', label: 'Tanggal Dibuat', pdfLabel: 'Tgl Dibuat', getValue: (i) => i.created_at ? new Date(i.created_at).toLocaleDateString('id-ID') : '—' },
+  { key: 'updated_at', label: 'Tanggal Diperbarui (Last Merge/Edit)', pdfLabel: 'Tgl Update', getValue: (i) => (i.updated_at || i.created_at) ? new Date(i.updated_at || i.created_at).toLocaleDateString('id-ID') : '—' },
   { key: 'solved_by', label: 'Diselesaikan Oleh', pdfLabel: 'Diselesaikan', getValue: (i) => i.solved_by_name ?? i.solved_by ?? '—' },
   { key: 'solved_at', label: 'Diselesaikan Pada', pdfLabel: 'Tgl Selesai', getValue: (i) => i.solved_at ? new Date(i.solved_at).toLocaleDateString('id-ID') : '—' },
 ];

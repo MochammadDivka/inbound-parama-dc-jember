@@ -375,9 +375,15 @@ export default function IssueDetailPage({ params }: { params: { id: string } }) 
             <strong>{issue.created_by_name ?? issue.created_by}</strong>
           </div>
           <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-            <span style={{ color: 'var(--color-text-muted)' }}>Tanggal</span>
+            <span style={{ color: 'var(--color-text-muted)' }}>Dibuat pada</span>
             <span>{formatDate(issue.created_at)}</span>
           </div>
+          {issue.updated_at && issue.updated_at !== issue.created_at && (
+            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <span style={{ color: 'var(--color-text-muted)' }}>Terakhir diperbarui</span>
+              <strong style={{ color: 'var(--color-primary)' }}>{formatDate(issue.updated_at)}</strong>
+            </div>
+          )}
           {issue.solved_by && (
             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
               <span style={{ color: 'var(--color-text-muted)' }}>Diselesaikan oleh</span>
