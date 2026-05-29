@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { AdminLayout } from '@/components/layout/AdminLayout';
 import { IssueStatusBadge, SelisihDisplay } from '@/components/ui/Badge';
 import { DashboardSummary, Issue, ActivityLog } from '@/types';
-import { formatRelativeTime } from '@/lib/utils';
+import { formatRelativeTime, formatDate } from '@/lib/utils';
 import Link from 'next/link';
 import { FileText, AlertCircle, Users, TrendingUp, ExternalLink, ChevronRight } from 'lucide-react';
 
@@ -141,10 +141,11 @@ export default function AdminDashboardPage() {
             <table>
               <thead>
                 <tr>
-                  <th>Issue ID</th>
+                  <th>HU</th>
                   <th>Nama Barang</th>
                   <th>Selisih</th>
                   <th>Status</th>
+                  <th>Tanggal</th>
                   <th>Dibuat</th>
                 </tr>
               </thead>
@@ -152,7 +153,7 @@ export default function AdminDashboardPage() {
                 {loading ? (
                   Array(5).fill(null).map((_, i) => (
                     <tr key={i}>
-                      {Array(5).fill(null).map((_, j) => (
+                      {Array(6).fill(null).map((_, j) => (
                         <td key={j}><div className="skeleton" style={{ height: 16 }} /></td>
                       ))}
                     </tr>
@@ -161,7 +162,7 @@ export default function AdminDashboardPage() {
                   <tr key={issue.issue_id} style={{ cursor: 'pointer' }}>
                     <td>
                       <Link href={`/admin/issues/${issue.issue_id}`} style={{ textDecoration: 'none', color: 'var(--color-primary)', fontFamily: 'monospace', fontSize: 13, fontWeight: 600 }}>
-                        {issue.issue_id}
+                        {issue.hu || '—'}
                       </Link>
                     </td>
                     <td>
@@ -170,7 +171,8 @@ export default function AdminDashboardPage() {
                     </td>
                     <td><SelisihDisplay value={issue.selisih_pcs} /></td>
                     <td><IssueStatusBadge status={issue.status} /></td>
-                    <td style={{ fontSize: 12, color: 'var(--color-text-muted)' }}>{formatRelativeTime(issue.created_at)}</td>
+                    <td style={{ fontSize: 12, color: 'var(--color-text-muted)' }}>{formatDate(issue.created_at)}</td>
+                    <td style={{ fontSize: 12, color: 'var(--color-text-muted)' }}>{issue.created_by_name || issue.created_by}</td>
                   </tr>
                 ))}
               </tbody>

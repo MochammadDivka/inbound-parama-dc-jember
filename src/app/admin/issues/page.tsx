@@ -6,7 +6,7 @@ import { useSearchParams } from 'next/navigation';
 import { AdminLayout } from '@/components/layout/AdminLayout';
 import { IssueStatusBadge, SelisihDisplay } from '@/components/ui/Badge';
 import { Issue } from '@/types';
-import { formatRelativeTime } from '@/lib/utils';
+import { formatRelativeTime, formatDate } from '@/lib/utils';
 import { ISSUE_CATEGORIES } from '@/lib/constants';
 import { Search, Filter, ChevronDown, ChevronUp, X, Eye } from 'lucide-react';
 import Link from 'next/link';
@@ -47,6 +47,8 @@ function AdminIssuesContent() {
     if (kategori !== 'ALL') params.set('kategori', kategori);
     if (dateFrom) params.set('date_from', dateFrom);
     if (dateTo) params.set('date_to', dateTo);
+    if (sortField) params.set('sort', sortField);
+    if (sortOrder) params.set('order', sortOrder);
     params.set('page', String(page));
     params.set('limit', String(LIMIT));
 
@@ -57,7 +59,7 @@ function AdminIssuesContent() {
       setTotal(data.total);
     }
     setLoading(false);
-  }, [search, status, kategori, dateFrom, dateTo, page]);
+  }, [search, status, kategori, dateFrom, dateTo, page, sortField, sortOrder]);
 
   useEffect(() => { fetchIssues(); }, [fetchIssues]);
 
@@ -104,7 +106,7 @@ function AdminIssuesContent() {
           <input
             className="input-field"
             type="search"
-            placeholder="Cari SKU, nama barang, atau Issue ID..."
+            placeholder="Cari SKU, nama barang, atau HU..."
             value={search}
             onChange={(e) => { setSearch(e.target.value); setPage(1); }}
             style={{ paddingLeft: 42 }}
@@ -169,8 +171,8 @@ function AdminIssuesContent() {
           <thead>
             <tr>
               <th>
-                <button onClick={() => handleSort('issue_id')} style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, fontWeight: 'inherit', color: 'inherit', fontSize: 'inherit' }}>
-                  Issue ID <SortIcon field="issue_id" />
+                <button onClick={() => handleSort('hu')} style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, fontWeight: 'inherit', color: 'inherit', fontSize: 'inherit' }}>
+                  HU <SortIcon field="hu" />
                 </button>
               </th>
               <th>SKU / Nama Barang</th>
@@ -183,9 +185,10 @@ function AdminIssuesContent() {
               <th>Status</th>
               <th>
                 <button onClick={() => handleSort('created_at')} style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, fontWeight: 'inherit', color: 'inherit', fontSize: 'inherit' }}>
-                  Dibuat <SortIcon field="created_at" />
+                  Tanggal <SortIcon field="created_at" />
                 </button>
               </th>
+              <th>Dibuat</th>
               <th>Aksi</th>
             </tr>
           </thead>
@@ -193,14 +196,14 @@ function AdminIssuesContent() {
             {loading ? (
               Array(8).fill(null).map((_, i) => (
                 <tr key={i}>
-                  {Array(7).fill(null).map((_, j) => (
+                  {Array(8).fill(null).map((_, j) => (
                     <td key={j}><div className="skeleton" style={{ height: 16, width: j === 1 ? 140 : 80 }} /></td>
                   ))}
                 </tr>
               ))
             ) : issues.length === 0 ? (
               <tr>
-                <td colSpan={7} style={{ textAlign: 'center', padding: '40px 20px', color: 'var(--color-text-muted)' }}>
+                <td colSpan={8} style={{ textAlign: 'center', padding: '40px 20px', color: 'var(--color-text-muted)' }}>
                   Tidak ada issue yang ditemukan
                 </td>
               </tr>
@@ -208,7 +211,7 @@ function AdminIssuesContent() {
               <tr key={issue.issue_id}>
                 <td>
                   <Link href={`/admin/issues/${issue.issue_id}`} style={{ textDecoration: 'none', color: 'var(--color-primary)', fontFamily: 'monospace', fontSize: 13, fontWeight: 600 }}>
-                    {issue.issue_id}
+                    {issue.hu || '—'}
                   </Link>
                 </td>
                 <td>
@@ -220,10 +223,8 @@ function AdminIssuesContent() {
                 <td style={{ fontSize: 13, color: 'var(--color-text-secondary)' }}>{issue.kategori_issue}</td>
                 <td><SelisihDisplay value={issue.selisih_pcs} /></td>
                 <td><IssueStatusBadge status={issue.status} /></td>
-                <td>
-                  <div style={{ fontSize: 13 }}>{issue.created_by_name}</div>
-                  <div style={{ fontSize: 12, color: 'var(--color-text-muted)' }}>{formatRelativeTime(issue.created_at)}</div>
-                </td>
+                <td style={{ fontSize: 13, color: 'var(--color-text-secondary)' }}>{formatDate(issue.created_at)}</td>
+                <td style={{ fontSize: 13 }}>{issue.created_by_name || issue.created_by}</td>
                 <td>
                   <Link href={`/admin/issues/${issue.issue_id}`} className="btn btn-ghost btn-sm" style={{ textDecoration: 'none' }}>
                     <Eye size={14} />
