@@ -63,6 +63,15 @@ function AdminIssuesContent() {
 
   useEffect(() => { fetchIssues(); }, [fetchIssues]);
 
+  // Auto-refresh when admin returns to this tab (after viewing issue detail)
+  useEffect(() => {
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') fetchIssues();
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+    return () => document.removeEventListener('visibilitychange', handleVisibility);
+  }, [fetchIssues]);
+
   const handleSort = (field: string) => {
     if (sortField === field) {
       setSortOrder((o) => o === 'asc' ? 'desc' : 'asc');
@@ -221,7 +230,12 @@ function AdminIssuesContent() {
                   </div>
                 </td>
                 <td style={{ fontSize: 13, color: 'var(--color-text-secondary)' }}>{issue.kategori_issue}</td>
-                <td><SelisihDisplay value={issue.remaining_selisih_pcs !== undefined && issue.remaining_selisih_pcs !== null ? Number(issue.remaining_selisih_pcs) : issue.selisih_pcs} /></td>
+                <td>
+                  <SelisihDisplay value={Number(issue.remaining_selisih_pcs ?? issue.selisih_pcs)} />
+                  {(issue.merge_count ?? 0) > 0 && (
+                    <span style={{ fontSize: 10, background: '#EFF6FF', color: '#2563EB', padding: '1px 5px', borderRadius: 4, marginLeft: 4, fontWeight: 600 }}>×{issue.merge_count}</span>
+                  )}
+                </td>
                 <td><IssueStatusBadge status={issue.status} /></td>
                 <td style={{ fontSize: 13, color: 'var(--color-text-secondary)' }}>
                   <div>{formatDateShort(issue.created_at)}</div>

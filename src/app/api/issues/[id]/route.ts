@@ -62,7 +62,9 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
   });
 
   if (!result.success) return NextResponse.json(result, { status: 500 });
-  return NextResponse.json({ ...result, message: 'Issue berhasil diperbarui' });
+  // Re-fetch fresh data after update so frontend receives latest state
+  const freshIssue = await dsGetIssueById(params.id);
+  return NextResponse.json({ success: true, data: freshIssue.data, message: 'Issue berhasil diperbarui' });
 }
 
 export async function PATCH(request: NextRequest, { params }: { params: { id: string } }) {
@@ -118,7 +120,8 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
       performed_by: session.user.name,
     });
     if (!result.success) return NextResponse.json(result, { status: 500 });
-    return NextResponse.json(result);
+    const freshIssue = await dsGetIssueById(params.id);
+    return NextResponse.json({ success: true, data: freshIssue.data, message: 'Issue berhasil diselesaikan' });
   }
 
   if (validated.action === 'cancel') {
@@ -130,7 +133,8 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
       performed_by: session.user.name,
     });
     if (!result.success) return NextResponse.json(result, { status: 500 });
-    return NextResponse.json(result);
+    const freshIssue = await dsGetIssueById(params.id);
+    return NextResponse.json({ success: true, data: freshIssue.data, message: 'Issue berhasil dibatalkan' });
   }
 
   if (validated.action === 'request-solved') {
@@ -143,7 +147,8 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
       performed_by: session.user.name,
     });
     if (!result.success) return NextResponse.json(result, { status: 500 });
-    return NextResponse.json(result);
+    const freshIssue = await dsGetIssueById(params.id);
+    return NextResponse.json({ success: true, data: freshIssue.data, message: 'Request solved berhasil dikirim' });
   }
 
   if (validated.action === 'approve') {
@@ -158,7 +163,8 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
       performed_by: session.user.name,
     });
     if (!result.success) return NextResponse.json(result, { status: 500 });
-    return NextResponse.json(result);
+    const freshIssue = await dsGetIssueById(params.id);
+    return NextResponse.json({ success: true, data: freshIssue.data, message: 'Issue berhasil di-approve dan SOLVED' });
   }
 
   if (validated.action === 'reject') {
@@ -173,13 +179,15 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
       performed_by: session.user.name,
     });
     if (!result.success) return NextResponse.json(result, { status: 500 });
-    return NextResponse.json(result);
+    const freshIssue = await dsGetIssueById(params.id);
+    return NextResponse.json({ success: true, data: freshIssue.data, message: 'Request solved ditolak' });
   }
 
   if (validated.action === 'update-photo') {
     const result = await dsUpdateIssue(params.id, { photo_url: validated.photo_url ?? '' });
     if (!result.success) return NextResponse.json(result, { status: 500 });
-    return NextResponse.json(result);
+    const freshIssue = await dsGetIssueById(params.id);
+    return NextResponse.json({ success: true, data: freshIssue.data, message: 'Foto berhasil diperbarui' });
   }
 
   return NextResponse.json({ success: false, error: { code: 'BAD_REQUEST', message: 'Action tidak valid' } }, { status: 400 });

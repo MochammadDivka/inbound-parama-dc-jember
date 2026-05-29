@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { AdminLayout } from '@/components/layout/AdminLayout';
 import { IssueStatusBadge, SelisihDisplay } from '@/components/ui/Badge';
 import { DashboardSummary, Issue, ActivityLog } from '@/types';
@@ -14,26 +14,34 @@ export default function AdminDashboardPage() {
   const [recentIssues, setRecentIssues] = useState<Issue[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    const fetchData = async () => {
-      const [dashRes, issueRes] = await Promise.all([
-        fetch('/api/dashboard', { cache: 'no-store' }),
-        fetch('/api/issues?limit=5', { cache: 'no-store' }),
-      ]);
-      const dashData = await dashRes.json();
-      const issueData = await issueRes.json();
+  const fetchData = useCallback(async () => {
+    const [dashRes, issueRes] = await Promise.all([
+      fetch('/api/dashboard', { cache: 'no-store' }),
+      fetch('/api/issues?limit=5', { cache: 'no-store' }),
+    ]);
+    const dashData = await dashRes.json();
+    const issueData = await issueRes.json();
 
-      if (dashData.success) {
-        setSummary(dashData.data.summary);
-        setRecentActivity(dashData.data.recent_activity ?? []);
-      }
-      if (issueData.success) {
-        setRecentIssues(issueData.data);
-      }
-      setLoading(false);
-    };
-    fetchData();
+    if (dashData.success) {
+      setSummary(dashData.data.summary);
+      setRecentActivity(dashData.data.recent_activity ?? []);
+    }
+    if (issueData.success) {
+      setRecentIssues(issueData.data);
+    }
+    setLoading(false);
   }, []);
+
+  useEffect(() => { fetchData(); }, [fetchData]);
+
+  // Auto-refresh when admin returns to this tab
+  useEffect(() => {
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') fetchData();
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+    return () => document.removeEventListener('visibilitychange', handleVisibility);
+  }, [fetchData]);
 
   const actionIcons: Record<string, string> = {
     issue_created: '🆕',
@@ -169,7 +177,12 @@ export default function AdminDashboardPage() {
                       <div style={{ fontWeight: 600, fontSize: 13 }}>{issue.nama_barang}</div>
                       <div style={{ fontSize: 12, color: 'var(--color-text-muted)' }}>{issue.sku}</div>
                     </td>
-                    <td><SelisihDisplay value={issue.remaining_selisih_pcs !== undefined && issue.remaining_selisih_pcs !== null ? Number(issue.remaining_selisih_pcs) : issue.selisih_pcs} /></td>
+                    <td>
+                      <SelisihDisplay value={Number(issue.remaining_selisih_pcs ?? issue.selisih_pcs)} />
+                      {(issue.merge_count ?? 0) > 0 && (
+                        <span style={{ fontSize: 10, background: '#EFF6FF', color: '#2563EB', padding: '1px 4px', borderRadius: 4, marginLeft: 4, fontWeight: 600 }}>×{issue.merge_count}</span>
+                      )}
+                    </td>
                     <td><IssueStatusBadge status={issue.status} /></td>
                     <td style={{ fontSize: 12, color: 'var(--color-text-muted)' }}>
                       <div>{formatDateShort(issue.created_at)}</div>

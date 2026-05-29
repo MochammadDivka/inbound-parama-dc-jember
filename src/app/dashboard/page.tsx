@@ -1,7 +1,7 @@
 'use client';
 
 import { useSession } from 'next-auth/react';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
 import { Plus, FileText, AlertCircle, Search, ChevronRight } from 'lucide-react';
 import { UserLayout } from '@/components/layout/UserLayout';
@@ -25,7 +25,7 @@ export default function UserDashboardPage() {
   const [summary, setSummary] = useState({ open: 0, solved: 0 });
   const [showMineOnly, setShowMineOnly] = useState(false);
 
-  const fetchIssues = async () => {
+  const fetchIssues = useCallback(async () => {
     setLoading(true);
     const params = new URLSearchParams();
     if (showMineOnly) params.set('mine', 'true');
@@ -37,9 +37,9 @@ export default function UserDashboardPage() {
       setIssues(data.data);
     }
     setLoading(false);
-  };
+  }, [showMineOnly, filter, search]);
 
-  const fetchSummary = async () => {
+  const fetchSummary = useCallback(async () => {
     const params = new URLSearchParams({ limit: '100' });
     if (showMineOnly) params.set('mine', 'true');
     const res = await fetch(`/api/issues?${params}`, { cache: 'no-store' });
@@ -51,10 +51,22 @@ export default function UserDashboardPage() {
         solved: all.filter((i) => i.status === 'SOLVED').length,
       });
     }
-  };
+  }, [showMineOnly]);
 
-  useEffect(() => { fetchSummary(); }, [showMineOnly]);
-  useEffect(() => { fetchIssues(); }, [filter, search, showMineOnly]);
+  useEffect(() => { fetchSummary(); }, [fetchSummary]);
+  useEffect(() => { fetchIssues(); }, [fetchIssues]);
+
+  // Auto-refresh when user comes back to this tab (after viewing issue detail)
+  useEffect(() => {
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        fetchIssues();
+        fetchSummary();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+    return () => document.removeEventListener('visibilitychange', handleVisibility);
+  }, [fetchIssues, fetchSummary]);
 
   return (
     <UserLayout>
@@ -222,7 +234,10 @@ function IssueCard({ issue }: { issue: Issue }) {
       </div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-          <SelisihDisplay value={issue.remaining_selisih_pcs !== undefined && issue.remaining_selisih_pcs !== null ? Number(issue.remaining_selisih_pcs) : issue.selisih_pcs} />
+          <SelisihDisplay value={Number(issue.remaining_selisih_pcs ?? issue.selisih_pcs)} />
+          {(issue.merge_count ?? 0) > 0 && (
+            <span style={{ fontSize: 10, background: '#EFF6FF', color: '#2563EB', padding: '1px 5px', borderRadius: 4, fontWeight: 600 }}>×{issue.merge_count}</span>
+          )}
           <span style={{ fontSize: 12, color: 'var(--color-text-muted)' }}>{issue.kategori_issue}</span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 4, color: 'var(--color-text-muted)' }}>

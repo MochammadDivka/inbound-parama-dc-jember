@@ -75,14 +75,17 @@ export async function POST(
   if (!result.success)
     return NextResponse.json(result, { status: 500 });
 
-  const remaining = result.data?.remaining_selisih_pcs ?? 0;
+  // Re-fetch full issue after merge so frontend gets latest complete data
+  const freshIssue = await dsGetIssueById(params.id);
+  const remaining = freshIssue.data?.remaining_selisih_pcs ?? result.data?.remaining_selisih_pcs ?? 0;
 
   return NextResponse.json({
-    ...result,
+    success: true,
     data: {
-      ...result.data,
+      ...(freshIssue.data ?? result.data),
       balanced: remaining === 0,
       remaining_selisih_pcs: remaining,
     },
+    message: 'Merge berhasil',
   });
 }

@@ -188,6 +188,32 @@ function generateUserId(role) {
 
 // ─── Issues ─────────────────────────────────────────────────────
 
+/**
+ * Menghitung remaining_selisih_pcs dari merge_history sebagai fallback.
+ * Jika kolom remaining_selisih_pcs di sheet tidak ada/kosong, derive dari riwayat merge.
+ * Jika tidak ada merge history sama sekali, gunakan selisih_pcs.
+ */
+function computeRemaining(rawRemaining, selisihPcs, mergeHistoryStr) {
+  // Prioritas 1: nilai dari kolom remaining_selisih_pcs jika valid
+  if (rawRemaining !== undefined && rawRemaining !== null && rawRemaining !== '') {
+    var num = Number(rawRemaining);
+    if (!isNaN(num)) return num;
+  }
+  // Prioritas 2: ambil dari entry terakhir merge_history
+  try {
+    var history = JSON.parse(mergeHistoryStr || '[]');
+    if (history && history.length > 0) {
+      var lastEntry = history[history.length - 1];
+      if (lastEntry && lastEntry.remaining !== undefined && lastEntry.remaining !== null) {
+        var remaining = Number(lastEntry.remaining);
+        if (!isNaN(remaining)) return remaining;
+      }
+    }
+  } catch (_) {}
+  // Prioritas 3: fallback ke selisih_pcs
+  return Number(selisihPcs || 0);
+}
+
 function getRelevanceScore(i, q) {
   var score = 0;
   var issueId = String(i.issue_id || '').toLowerCase();
@@ -228,9 +254,8 @@ function getIssues(params) {
     i.qty_system_pcs = Number(i.qty_system_pcs);
     i.qty_fisik_pcs = Number(i.qty_fisik_pcs);
     i.selisih_pcs = Number(i.selisih_pcs);
-    i.remaining_selisih_pcs = (i.remaining_selisih_pcs !== undefined && i.remaining_selisih_pcs !== null && i.remaining_selisih_pcs !== '')
-      ? Number(i.remaining_selisih_pcs)
-      : null;
+    // Gunakan computeRemaining agar nilai selalu valid meski kolom kosong di sheet
+    i.remaining_selisih_pcs = computeRemaining(i.remaining_selisih_pcs, i.selisih_pcs, i.merge_history);
     i.merge_count = (i.merge_count !== undefined && i.merge_count !== null && i.merge_count !== '')
       ? Number(i.merge_count)
       : 0;
@@ -332,9 +357,8 @@ function getIssue(id) {
   issue.qty_system_pcs = Number(issue.qty_system_pcs);
   issue.qty_fisik_pcs = Number(issue.qty_fisik_pcs);
   issue.selisih_pcs = Number(issue.selisih_pcs);
-  issue.remaining_selisih_pcs = (issue.remaining_selisih_pcs !== undefined && issue.remaining_selisih_pcs !== null && issue.remaining_selisih_pcs !== '')
-    ? Number(issue.remaining_selisih_pcs)
-    : null;
+  // Gunakan computeRemaining agar nilai selalu valid meski kolom kosong di sheet
+  issue.remaining_selisih_pcs = computeRemaining(issue.remaining_selisih_pcs, issue.selisih_pcs, issue.merge_history);
   issue.merge_count = (issue.merge_count !== undefined && issue.merge_count !== null && issue.merge_count !== '')
     ? Number(issue.merge_count)
     : 0;
