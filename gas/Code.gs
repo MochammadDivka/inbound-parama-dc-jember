@@ -246,8 +246,12 @@ function getIssues(params) {
   if (params.kategori && params.kategori !== 'ALL') records = records.filter(function(i) { return i.kategori_issue === params.kategori; });
   if (params.created_by) records = records.filter(function(i) { return i.created_by === params.created_by; });
 
-  // Sort by search relevance if searching, else by newest first
-  if (params.search) {
+  // Sort
+  var sortField = params.sort;
+  var sortOrder = params.order || 'desc';
+  var useRelevance = params.search && (!sortField || (sortField === 'created_at' && sortOrder === 'desc'));
+
+  if (useRelevance) {
     var q = params.search.toLowerCase();
     records.sort(function(a, b) {
       var scoreA = getRelevanceScore(a, q);
@@ -256,6 +260,33 @@ function getIssues(params) {
         return scoreB - scoreA;
       }
       return new Date(b.created_at) - new Date(a.created_at);
+    });
+  } else if (sortField) {
+    records.sort(function(a, b) {
+      var valA = a[sortField];
+      var valB = b[sortField];
+
+      if (valA === undefined || valA === null) valA = '';
+      if (valB === undefined || valB === null) valB = '';
+
+      // Date sorting
+      if (sortField === 'created_at' || sortField === 'solved_at' || sortField === 'cancelled_at' || sortField === 'req_solved_at') {
+        var dateA = valA ? new Date(valA).getTime() : 0;
+        var dateB = valB ? new Date(valB).getTime() : 0;
+        return sortOrder === 'asc' ? dateA - dateB : dateB - dateA;
+      }
+
+      // Number sorting
+      if (typeof valA === 'number' && typeof valB === 'number') {
+        return sortOrder === 'asc' ? valA - valB : valB - valA;
+      }
+
+      // String sorting (case-insensitive)
+      var strA = String(valA).toLowerCase().trim();
+      var strB = String(valB).toLowerCase().trim();
+      if (strA < strB) return sortOrder === 'asc' ? -1 : 1;
+      if (strA > strB) return sortOrder === 'asc' ? 1 : -1;
+      return 0;
     });
   } else {
     records.sort(function(a, b) { return new Date(b.created_at) - new Date(a.created_at); });

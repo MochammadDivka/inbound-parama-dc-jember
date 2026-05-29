@@ -93,6 +93,42 @@ export async function dsGetIssues(params: IssueListParams): Promise<GASResponse<
     issues = issues.filter((i) => (i.created_at || '').split('T')[0] <= params.date_to!);
   }
 
+  // Sorting mock fallback
+  const sortField = params.sort;
+  const sortOrder = params.order || 'desc';
+
+  if (sortField) {
+    issues.sort((a, b) => {
+      const valA = (a as any)[sortField];
+      const valB = (b as any)[sortField];
+
+      if (valA === undefined || valA === null) return 1;
+      if (valB === undefined || valB === null) return -1;
+
+      // Date sorting
+      if (sortField === 'created_at' || sortField === 'solved_at' || sortField === 'cancelled_at' || sortField === 'req_solved_at') {
+        const dateA = new Date(valA).getTime();
+        const dateB = new Date(valB).getTime();
+        return sortOrder === 'asc' ? dateA - dateB : dateB - dateA;
+      }
+
+      // Number sorting
+      if (typeof valA === 'number' && typeof valB === 'number') {
+        return sortOrder === 'asc' ? valA - valB : valB - valA;
+      }
+
+      // String sorting
+      const strA = String(valA).toLowerCase().trim();
+      const strB = String(valB).toLowerCase().trim();
+      if (strA < strB) return sortOrder === 'asc' ? -1 : 1;
+      if (strA > strB) return sortOrder === 'asc' ? 1 : -1;
+      return 0;
+    });
+  } else {
+    // Default newest first
+    issues.sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
+  }
+
   const page = params.page ?? 1;
   const limit = params.limit ?? 20;
   const total = issues.length;
