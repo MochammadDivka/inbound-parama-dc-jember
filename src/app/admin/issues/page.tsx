@@ -52,7 +52,7 @@ function AdminIssuesContent() {
     params.set('page', String(page));
     params.set('limit', String(LIMIT));
 
-    const res = await fetch(`/api/issues?${params}`);
+    const res = await fetch(`/api/issues?${params}`, { cache: 'no-store' });
     const data = await res.json();
     if (data.success) {
       setIssues(data.data);

@@ -5,6 +5,8 @@ import { dsGetIssues, dsCreateIssue, dsCheckDuplicateIssue, dsAddLog } from '@/l
 import { createIssueSchema } from '@/lib/validators';
 import { ZodError } from 'zod';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET(request: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session)

@@ -17,8 +17,8 @@ export default function AdminDashboardPage() {
   useEffect(() => {
     const fetchData = async () => {
       const [dashRes, issueRes] = await Promise.all([
-        fetch('/api/dashboard'),
-        fetch('/api/issues?limit=5'),
+        fetch('/api/dashboard', { cache: 'no-store' }),
+        fetch('/api/issues?limit=5', { cache: 'no-store' }),
       ]);
       const dashData = await dashRes.json();
       const issueData = await issueRes.json();

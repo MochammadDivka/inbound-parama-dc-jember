@@ -31,7 +31,7 @@ export default function UserDashboardPage() {
     if (showMineOnly) params.set('mine', 'true');
     if (filter !== 'ALL') params.set('status', filter);
     if (search) params.set('search', search);
-    const res = await fetch(`/api/issues?${params}`);
+    const res = await fetch(`/api/issues?${params}`, { cache: 'no-store' });
     const data = await res.json();
     if (data.success) {
       setIssues(data.data);
@@ -42,7 +42,7 @@ export default function UserDashboardPage() {
   const fetchSummary = async () => {
     const params = new URLSearchParams({ limit: '100' });
     if (showMineOnly) params.set('mine', 'true');
-    const res = await fetch(`/api/issues?${params}`);
+    const res = await fetch(`/api/issues?${params}`, { cache: 'no-store' });
     const data = await res.json();
     if (data.success) {
       const all: Issue[] = data.data;
