@@ -46,7 +46,7 @@ export default function IssueDetailPage({ params }: { params: { id: string } }) 
     cleanString(issue.created_by) === cleanString(session?.user.id) ||
     cleanString(issue.created_by_name) === cleanString(session?.user.name)
   );
-  const remaining = issue?.remaining_selisih_pcs ?? issue?.selisih_pcs ?? 0;
+  const remaining = issue?.remaining_selisih_pcs !== undefined && issue?.remaining_selisih_pcs !== null ? Number(issue.remaining_selisih_pcs) : (issue?.selisih_pcs ?? 0);
   const isBalanced = remaining === 0;
   const canRequestSolved = issue?.status === 'OPEN'; // Siapapun USER bisa request
 

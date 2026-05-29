@@ -190,7 +190,7 @@ export default function NewIssuePage() {
           setMergeInfo({
             existing_id: found.issue_id,
             existing_selisih: found.selisih_pcs,
-            existing_remaining: found.remaining_selisih_pcs ?? found.selisih_pcs,
+            existing_remaining: found.remaining_selisih_pcs !== undefined && found.remaining_selisih_pcs !== null ? Number(found.remaining_selisih_pcs) : found.selisih_pcs,
             sku: form.sku,
             batch: form.batch.toUpperCase(),
           });
@@ -314,7 +314,7 @@ export default function NewIssuePage() {
           setMergeInfo({
             existing_id: data.error.details.existing_id as string,
             existing_selisih: dupData.data.selisih_pcs as number,
-            existing_remaining: dupData.data.remaining_selisih_pcs ?? dupData.data.selisih_pcs as number,
+            existing_remaining: dupData.data.remaining_selisih_pcs !== undefined && dupData.data.remaining_selisih_pcs !== null ? Number(dupData.data.remaining_selisih_pcs) : (dupData.data.selisih_pcs as number),
             sku: form.sku,
             batch: form.batch.toUpperCase(),
           });

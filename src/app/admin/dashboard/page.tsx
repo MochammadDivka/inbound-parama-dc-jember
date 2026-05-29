@@ -169,7 +169,7 @@ export default function AdminDashboardPage() {
                       <div style={{ fontWeight: 600, fontSize: 13 }}>{issue.nama_barang}</div>
                       <div style={{ fontSize: 12, color: 'var(--color-text-muted)' }}>{issue.sku}</div>
                     </td>
-                    <td><SelisihDisplay value={issue.remaining_selisih_pcs !== undefined && issue.remaining_selisih_pcs !== null ? issue.remaining_selisih_pcs : issue.selisih_pcs} /></td>
+                    <td><SelisihDisplay value={issue.remaining_selisih_pcs !== undefined && issue.remaining_selisih_pcs !== null ? Number(issue.remaining_selisih_pcs) : issue.selisih_pcs} /></td>
                     <td><IssueStatusBadge status={issue.status} /></td>
                     <td style={{ fontSize: 12, color: 'var(--color-text-muted)' }}>{formatDate(issue.updated_at || issue.created_at)}</td>
                     <td style={{ fontSize: 12, color: 'var(--color-text-muted)' }}>{issue.created_by_name || issue.created_by}</td>

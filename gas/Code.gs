@@ -227,6 +227,12 @@ function getIssues(params) {
     i.qty_system_pcs = Number(i.qty_system_pcs);
     i.qty_fisik_pcs = Number(i.qty_fisik_pcs);
     i.selisih_pcs = Number(i.selisih_pcs);
+    i.remaining_selisih_pcs = (i.remaining_selisih_pcs !== undefined && i.remaining_selisih_pcs !== null && i.remaining_selisih_pcs !== '')
+      ? Number(i.remaining_selisih_pcs)
+      : null;
+    i.merge_count = (i.merge_count !== undefined && i.merge_count !== null && i.merge_count !== '')
+      ? Number(i.merge_count)
+      : 0;
     return i;
   });
 
@@ -324,6 +330,12 @@ function getIssue(id) {
   issue.qty_system_pcs = Number(issue.qty_system_pcs);
   issue.qty_fisik_pcs = Number(issue.qty_fisik_pcs);
   issue.selisih_pcs = Number(issue.selisih_pcs);
+  issue.remaining_selisih_pcs = (issue.remaining_selisih_pcs !== undefined && issue.remaining_selisih_pcs !== null && issue.remaining_selisih_pcs !== '')
+    ? Number(issue.remaining_selisih_pcs)
+    : null;
+  issue.merge_count = (issue.merge_count !== undefined && issue.merge_count !== null && issue.merge_count !== '')
+    ? Number(issue.merge_count)
+    : 0;
   return { success: true, data: issue };
 }
 

@@ -50,7 +50,7 @@ export default function AdminIssueDetailPage({ params }: { params: { id: string 
     fetchIssue();
   }, [params.id]);
 
-  const remaining = (issue?.remaining_selisih_pcs ?? issue?.selisih_pcs) ?? 0;
+  const remaining = issue?.remaining_selisih_pcs !== undefined && issue?.remaining_selisih_pcs !== null ? Number(issue.remaining_selisih_pcs) : (issue?.selisih_pcs ?? 0);
   const photosList = issue?.photo_url ? issue.photo_url.split(',').filter(Boolean) : [];
   const hasPhotos = photosList.length > 0;
 
