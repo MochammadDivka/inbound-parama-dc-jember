@@ -16,10 +16,46 @@ function getDriveClient() {
   const serviceAccountJson = process.env.GOOGLE_SERVICE_ACCOUNT_JSON;
   if (!serviceAccountJson) throw new Error('GOOGLE_SERVICE_ACCOUNT_JSON tidak dikonfigurasi');
 
-  const creds = JSON.parse(Buffer.from(serviceAccountJson, 'base64').toString('utf-8'));
-  if (creds.private_key) {
-    creds.private_key = creds.private_key.replace(/\\n/g, '\n');
+  let creds: any;
+  const cleanedStr = serviceAccountJson.trim();
+
+  try {
+    // 1. Coba parse sebagai base64
+    const decoded = Buffer.from(cleanedStr, 'base64').toString('utf-8');
+    if (decoded.trim().startsWith('{')) {
+      creds = JSON.parse(decoded);
+    } else {
+      creds = JSON.parse(cleanedStr);
+    }
+  } catch (e) {
+    // 2. Jika gagal, coba parse langsung sebagai raw JSON
+    try {
+      creds = JSON.parse(cleanedStr);
+    } catch (e2) {
+      throw new Error('GOOGLE_SERVICE_ACCOUNT_JSON tidak valid (bukan Base64 atau JSON)');
+    }
   }
+
+  if (!creds || !creds.private_key) {
+    throw new Error('GOOGLE_SERVICE_ACCOUNT_JSON tidak mengandung private_key');
+  }
+
+  // Normalisasi private_key secara mendalam
+  let privateKey = creds.private_key;
+  
+  // Mengatasi literal \n ganda atau tunggal
+  privateKey = privateKey.replace(/\\n/g, '\n');
+  privateKey = privateKey.replace(/\r/g, '');
+  
+  // Pastikan format PEM rapi
+  if (!privateKey.includes('-----BEGIN PRIVATE KEY-----')) {
+    privateKey = `-----BEGIN PRIVATE KEY-----\n${privateKey}`;
+  }
+  if (!privateKey.includes('-----END PRIVATE KEY-----')) {
+    privateKey = `${privateKey}\n-----END PRIVATE KEY-----`;
+  }
+
+  creds.private_key = privateKey;
 
   const auth = new google.auth.GoogleAuth({
     credentials: creds,
