@@ -180,7 +180,7 @@ export default function NewIssuePage() {
     setCheckingDup(true);
     setMergeInfo(null);
     try {
-      const res = await fetch(`/api/issues/check-duplicate?sku=${encodeURIComponent(form.sku)}&batch=${encodeURIComponent(form.batch)}`);
+      const res = await fetch(`/api/issues/check-duplicate?sku=${encodeURIComponent(form.sku)}&batch=${encodeURIComponent(form.batch)}&hu=${encodeURIComponent(form.hu)}`);
       const data = await res.json();
       if (data.success && data.data?.isDuplicate && data.data?.existing_issue) {
         const found = data.data.existing_issue;
@@ -201,7 +201,7 @@ export default function NewIssuePage() {
     } finally {
       setCheckingDup(false);
     }
-  }, [form.sku, form.batch]);
+  }, [form.sku, form.batch, form.hu]);
 
   // ─── Validate ─────────────────────────────────────────────────────
   const validate = () => {

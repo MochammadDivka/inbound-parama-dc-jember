@@ -12,10 +12,16 @@ export async function GET(request: NextRequest) {
   const sku = searchParams.get('sku')?.trim() ?? '';
   const batch = searchParams.get('batch')?.trim() ?? '';
   const exclude_id = searchParams.get('exclude_id')?.trim() ?? '';
+  const hu = searchParams.get('hu');
 
   if (!sku || !batch)
     return NextResponse.json({ success: true, data: { isDuplicate: false } });
 
-  const result = await dsCheckDuplicateIssue(sku, batch, exclude_id || undefined);
+  const result = await dsCheckDuplicateIssue(
+    sku,
+    batch,
+    exclude_id || undefined,
+    hu !== null ? hu.trim() : undefined
+  );
   return NextResponse.json({ success: true, data: result });
 }

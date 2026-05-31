@@ -178,9 +178,9 @@ export async function POST(request: NextRequest) {
 
   // Server-side duplicate check (skip jika SKU kosong — HU Rusak tanpa SKU)
   if (validatedData.sku && validatedData.batch) {
-    const dup = await dsCheckDuplicateIssue(validatedData.sku, validatedData.batch);
+    const dup = await dsCheckDuplicateIssue(validatedData.sku, validatedData.batch, undefined, validatedData.hu);
     if (dup.isDuplicate)
-      return NextResponse.json({ success: false, error: { code: 'DUPLICATE_ISSUE', message: `Issue dengan SKU ${validatedData.sku} dan Batch ${validatedData.batch} sudah ada`, details: { existing_id: dup.existing_id } } }, { status: 409 });
+      return NextResponse.json({ success: false, error: { code: 'DUPLICATE_ISSUE', message: `Issue dengan SKU ${validatedData.sku}, Batch ${validatedData.batch}, dan HU ${validatedData.hu || '(kosong)'} sudah ada`, details: { existing_id: dup.existing_id } } }, { status: 409 });
   }
 
   // Generate issue ID terlebih dahulu agar bisa dipakai untuk nama file Drive

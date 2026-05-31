@@ -251,7 +251,7 @@ export async function dsGetIssueById(id: string): Promise<DBResponse<Issue>> {
 }
 
 export async function dsCheckDuplicateIssue(
-  sku: string, batch: string, exclude_id?: string
+  sku: string, batch: string, exclude_id?: string, hu?: string
 ): Promise<{ isDuplicate: boolean; existing_id: string | null; existing_issue: Issue | null }> {
   const db = getSupabaseAdmin();
   let query = db
@@ -259,14 +259,40 @@ export async function dsCheckDuplicateIssue(
     .select('*')
     .eq('sku', sku)
     .eq('batch', batch)
-    .eq('status', 'OPEN')
-    .limit(1);
+    .eq('status', 'OPEN');
+  
   if (exclude_id) query = query.neq('issue_id', exclude_id);
 
   const { data } = await query;
-  const dup = data?.[0] ?? null;
+  if (!data || data.length === 0) {
+    return { isDuplicate: false, existing_id: null, existing_issue: null };
+  }
+
+  // Jika kode HU disuplai, lakukan validasi pencocokan ketat berbasis HU
+  if (hu !== undefined) {
+    const inputHu = hu.trim().toUpperCase();
+    
+    // Cari issue yang memiliki HU yang sama persis DAN non-kosong
+    const matched = data.find((r) => {
+      const existingHu = ((r as any).hu || '').trim().toUpperCase();
+      return inputHu !== '' && existingHu !== '' && inputHu === existingHu;
+    });
+
+    if (matched) {
+      return {
+        isDuplicate: true,
+        existing_id: (matched as any).issue_id,
+        existing_issue: rowToIssue(matched as Record<string, unknown>),
+      };
+    } else {
+      return { isDuplicate: false, existing_id: null, existing_issue: null };
+    }
+  }
+
+  // Fallback untuk pencocokan standar jika HU tidak disuplai (perilaku lama)
+  const dup = data[0];
   return { 
-    isDuplicate: !!dup, 
+    isDuplicate: true, 
     existing_id: dup ? (dup as any).issue_id : null,
     existing_issue: dup ? rowToIssue(dup as Record<string, unknown>) : null 
   };
