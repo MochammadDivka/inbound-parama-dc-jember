@@ -150,12 +150,15 @@ export async function POST(request: NextRequest) {
   let drive: ReturnType<typeof getDriveClient>;
   try {
     drive = getDriveClient();
-  } catch (err) {
+  } catch (err: any) {
     console.error('[upload/photo] Gagal membuat Drive client:', err);
     return NextResponse.json(
       {
         success: false,
-        error: { code: 'DRIVE_AUTH_ERROR', message: 'Konfigurasi service account tidak valid' },
+        error: { 
+          code: 'DRIVE_AUTH_ERROR', 
+          message: `Konfigurasi service account tidak valid: ${err?.message || err}` 
+        },
       },
       { status: 500 }
     );

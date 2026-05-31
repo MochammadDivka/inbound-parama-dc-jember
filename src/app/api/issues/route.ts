@@ -195,9 +195,18 @@ export async function POST(request: NextRequest) {
     let drive;
     try {
       drive = getDriveClient();
-    } catch (err) {
+    } catch (err: any) {
       console.error('[POST /api/issues] Gagal membuat Drive client:', err);
-      return NextResponse.json({ success: false, error: { code: 'DRIVE_AUTH_ERROR', message: 'Konfigurasi service account tidak valid' } }, { status: 500 });
+      return NextResponse.json(
+        {
+          success: false,
+          error: { 
+            code: 'DRIVE_AUTH_ERROR', 
+            message: `Konfigurasi service account tidak valid: ${err?.message || err}` 
+          }
+        },
+        { status: 500 }
+      );
     }
 
     try {
