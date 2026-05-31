@@ -28,7 +28,7 @@ export function useSupabaseRealtime(
           schema: 'public',
           table: table,
         },
-        (payload) => {
+        (payload: any) => {
           console.log(`[Supabase Realtime] Perubahan terdeteksi pada ${table}:`, payload);
           // Invalidate semua query keys yang didaftarkan
           for (const key of queryKeysToInvalidate) {
@@ -36,7 +36,7 @@ export function useSupabaseRealtime(
           }
         }
       )
-      .subscribe((status) => {
+      .subscribe((status: any) => {
         console.log(`[Supabase Realtime] Status subscription ${table}:`, status);
       });
 
