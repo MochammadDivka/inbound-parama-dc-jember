@@ -10,17 +10,32 @@ const MAX_SIZE_BYTES = MAX_PHOTO_SIZE_MB * 1024 * 1024;
 const DRIVE_FOLDER_ID = process.env.GOOGLE_DRIVE_FOLDER_ID ?? '';
 
 /**
- * Buat Google Drive client menggunakan service account dari env.
+ * Buat Google Drive client menggunakan OAuth 2.0 (Client ID, Client Secret, Refresh Token)
+ * atau jatuh kembali (fallback) ke Service Account.
  */
 function getDriveClient() {
+  const clientId = process.env.GOOGLE_CLIENT_ID;
+  const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
+  const refreshToken = process.env.GOOGLE_REFRESH_TOKEN;
+
+  // 1. Coba OAuth 2.0 jika kredensial diatur
+  if (clientId && clientSecret && refreshToken) {
+    const oauth2Client = new google.auth.OAuth2(clientId, clientSecret);
+    oauth2Client.setCredentials({ refresh_token: refreshToken });
+    return google.drive({ version: 'v3', auth: oauth2Client });
+  }
+
+  // 2. Fallback ke Service Account JSON jika kredensial OAuth tidak lengkap
   const serviceAccountJson = process.env.GOOGLE_SERVICE_ACCOUNT_JSON;
-  if (!serviceAccountJson) throw new Error('GOOGLE_SERVICE_ACCOUNT_JSON tidak dikonfigurasi');
+  if (!serviceAccountJson) {
+    throw new Error('Metode autentikasi Google Drive tidak dikonfigurasi (atur GOOGLE_CLIENT_ID/SECRET/REFRESH_TOKEN atau GOOGLE_SERVICE_ACCOUNT_JSON)');
+  }
 
   let creds: any;
   const cleanedStr = serviceAccountJson.trim();
 
   try {
-    // 1. Coba parse sebagai base64
+    // Coba parse sebagai base64
     const decoded = Buffer.from(cleanedStr, 'base64').toString('utf-8');
     if (decoded.trim().startsWith('{')) {
       creds = JSON.parse(decoded);
@@ -28,7 +43,7 @@ function getDriveClient() {
       creds = JSON.parse(cleanedStr);
     }
   } catch (e) {
-    // 2. Jika gagal, coba parse langsung sebagai raw JSON
+    // Jika gagal, coba parse langsung sebagai raw JSON
     try {
       creds = JSON.parse(cleanedStr);
     } catch (e2) {
@@ -65,11 +80,13 @@ function getDriveClient() {
   return google.drive({ version: 'v3', auth });
 }
 
-const isDriveEnabled = !!process.env.GOOGLE_SERVICE_ACCOUNT_JSON && !!DRIVE_FOLDER_ID;
+const hasOAuth = !!(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET && process.env.GOOGLE_REFRESH_TOKEN);
+const hasServiceAccount = !!process.env.GOOGLE_SERVICE_ACCOUNT_JSON;
+const isDriveEnabled = (hasOAuth || hasServiceAccount) && !!DRIVE_FOLDER_ID;
 
 /**
  * POST /api/upload/photo
- * Upload foto bukti issue ke Google Drive via service account (langsung, tanpa GAS)
+ * Upload foto bukti issue ke Google Drive via service account / OAuth2
  * FormData fields:
  *   - photos: File[] (max 3, max 5MB each, JPG/PNG/WEBP)
  *   - issue_id: string (digunakan untuk nama file)
@@ -89,7 +106,7 @@ export async function POST(request: NextRequest) {
         error: {
           code: 'DRIVE_NOT_CONFIGURED',
           message:
-            'Upload foto belum dikonfigurasi. Set GOOGLE_SERVICE_ACCOUNT_JSON dan GOOGLE_DRIVE_FOLDER_ID di environment variables.',
+            'Upload foto belum dikonfigurasi. Atur GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_REFRESH_TOKEN (atau GOOGLE_SERVICE_ACCOUNT_JSON) dan GOOGLE_DRIVE_FOLDER_ID di environment variables.',
         },
       },
       { status: 503 }
