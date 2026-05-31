@@ -49,8 +49,8 @@ export const authOptions: NextAuthOptions = {
         const username = credentials.username.toLowerCase().trim();
 
         // Check lockout
-        if (isLocked(username)) {
-          const mins = lockRemainingMinutes(username);
+        if (await isLocked(username)) {
+          const mins = await lockRemainingMinutes(username);
           throw new Error(`LOCKED:${mins}`);
         }
 
@@ -58,7 +58,7 @@ export const authOptions: NextAuthOptions = {
         const authData = await dsGetUserForAuth(username);
 
         if (!authData || authData.user.status !== 'ACTIVE') {
-          recordFailedAttempt(username);
+          await recordFailedAttempt(username);
           await dsAddLog({
             reference_id: username,
             reference_type: 'USER',
@@ -72,7 +72,7 @@ export const authOptions: NextAuthOptions = {
         // Verify PIN dengan bcrypt
         const isValid = await compareSecret(credentials.pin, authData.pin_hash);
         if (!isValid) {
-          const nowLocked = recordFailedAttempt(username);
+          const nowLocked = await recordFailedAttempt(username);
           await dsAddLog({
             reference_id: authData.user.user_id,
             reference_type: 'USER',
@@ -84,7 +84,7 @@ export const authOptions: NextAuthOptions = {
         }
 
         // Success
-        clearAttempts(username);
+        await clearAttempts(username);
         await dsAddLog({
           reference_id: authData.user.user_id,
           reference_type: 'USER',
@@ -116,8 +116,8 @@ export const authOptions: NextAuthOptions = {
         const email = credentials.email.toLowerCase().trim();
 
         // Check lockout by email
-        if (isLocked(email)) {
-          const mins = lockRemainingMinutes(email);
+        if (await isLocked(email)) {
+          const mins = await lockRemainingMinutes(email);
           throw new Error(`LOCKED:${mins}`);
         }
 
@@ -125,7 +125,7 @@ export const authOptions: NextAuthOptions = {
         const authData = await dsGetAdminForAuth(email);
 
         if (!authData || authData.user.status !== 'ACTIVE') {
-          recordFailedAttempt(email);
+          await recordFailedAttempt(email);
           await dsAddLog({
             reference_id: email,
             reference_type: 'USER',
@@ -144,7 +144,7 @@ export const authOptions: NextAuthOptions = {
         // Verify password dengan bcrypt
         const isValid = await compareSecret(credentials.password, authData.password_hash);
         if (!isValid) {
-          recordFailedAttempt(email);
+          await recordFailedAttempt(email);
           await dsAddLog({
             reference_id: authData.user.user_id,
             reference_type: 'USER',
@@ -155,7 +155,7 @@ export const authOptions: NextAuthOptions = {
           return null;
         }
 
-        clearAttempts(email);
+        await clearAttempts(email);
         await dsAddLog({
           reference_id: authData.user.user_id,
           reference_type: 'USER',

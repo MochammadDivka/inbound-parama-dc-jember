@@ -6,10 +6,13 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "seed": "node supabase/seed-admin.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.1",
+    "@supabase/supabase-js": "^2.106.2",
+    "@tanstack/react-query": "^5.100.14",
     "@types/bcryptjs": "^2.4.6",
     "bcryptjs": "^3.0.3",
     "clsx": "^2.1.1",

@@ -10,6 +10,7 @@ import { useToast } from '@/components/ui/ToastProvider';
 import { ISSUE_CATEGORIES, OPTIONAL_SKU_BATCH_CATEGORIES, REQUIRED_BATCH_CATEGORIES } from '@/lib/constants';
 import { IssueCategory } from '@/types';
 import Link from 'next/link';
+import NextImage from 'next/image';
 
 interface MergeInfo {
   existing_id: string;
@@ -181,22 +182,17 @@ export default function NewIssuePage() {
     try {
       const res = await fetch(`/api/issues/check-duplicate?sku=${encodeURIComponent(form.sku)}&batch=${encodeURIComponent(form.batch)}`);
       const data = await res.json();
-      if (data.success && data.data?.isDuplicate) {
-        const existingId = data.data.existing_id;
-        const issueRes = await fetch(`/api/issues/${existingId}`);
-        const issueData = await issueRes.json();
-        if (issueData.success && issueData.data) {
-          const found = issueData.data;
-          setMergeInfo({
-            existing_id: found.issue_id,
-            existing_selisih: found.selisih_pcs,
-            existing_remaining: found.remaining_selisih_pcs !== undefined && found.remaining_selisih_pcs !== null ? Number(found.remaining_selisih_pcs) : found.selisih_pcs,
-            sku: form.sku,
-            batch: form.batch.toUpperCase(),
-          });
-          setShowMergeDialog(true);
-          return true;
-        }
+      if (data.success && data.data?.isDuplicate && data.data?.existing_issue) {
+        const found = data.data.existing_issue;
+        setMergeInfo({
+          existing_id: found.issue_id,
+          existing_selisih: found.selisih_pcs,
+          existing_remaining: found.remaining_selisih_pcs !== undefined && found.remaining_selisih_pcs !== null ? Number(found.remaining_selisih_pcs) : found.selisih_pcs,
+          sku: form.sku,
+          batch: form.batch.toUpperCase(),
+        });
+        setShowMergeDialog(true);
+        return true;
       }
       return false;
     } catch (err) {
@@ -222,89 +218,54 @@ export default function NewIssuePage() {
     return Object.keys(errs).length === 0;
   };
 
-  // ─── Upload single photo ───────────────────────────────────────────
-  const uploadPhoto = async (idx: number, issueId: string): Promise<string | null> => {
-    const photo = photos[idx];
-    if (!photo || photo.uploadedUrl) return photo?.uploadedUrl ?? null;
-
-    setPhotos((prev) => prev.map((p, i) => i === idx ? { ...p, uploading: true, error: undefined } : p));
-
-    const fd = new FormData();
-    fd.append('photos', photo.file);
-    fd.append('issue_id', issueId);
-
-    try {
-      const res = await fetch('/api/upload/photo', { method: 'POST', body: fd });
-      const data = await res.json();
-      if (data.success && data.data?.urls?.[0]) {
-        const url = data.data.urls[0] as string;
-        setPhotos((prev) => prev.map((p, i) => i === idx ? { ...p, uploading: false, uploadedUrl: url } : p));
-        return url;
-      } else {
-        setPhotos((prev) => prev.map((p, i) => i === idx ? { ...p, uploading: false, error: data.error?.message ?? 'Upload gagal' } : p));
-        return null;
-      }
-    } catch {
-      setPhotos((prev) => prev.map((p, i) => i === idx ? { ...p, uploading: false, error: 'Koneksi error' } : p));
-      return null;
-    }
-  };
-
   // ─── Submit ────────────────────────────────────────────────────────
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (loading) return; // Tangkal klik ganda instan
     if (!validate()) return;
+
+    setLoading(true); // Kunci loading di awal!
 
     // Cek duplikat terlebih dahulu jika SKU dan batch ada
     if (form.sku && form.batch && !mergeInfo) {
       const hasDuplicate = await checkDuplicate();
-      if (hasDuplicate) return; // merge dialog akan muncul jika duplikat
+      if (hasDuplicate) {
+        setLoading(false); // Reset loading jika duplikat terdeteksi
+        return; // merge dialog akan muncul jika duplikat
+      }
     }
 
-    setLoading(true);
-    const payload = {
-      ...form,
-      batch: form.batch.toUpperCase(),
-      qty_system_pcs: parseFloat(form.qty_system_pcs),
-      qty_fisik_pcs: parseFloat(form.qty_fisik_pcs),
-      created_at: form.created_at ? new Date(form.created_at).toISOString() : undefined,
-    };
+    // Menggunakan FormData untuk satu request atomic (Temuan 4)
+    const fd = new FormData();
+    fd.append('sku', form.sku);
+    fd.append('nama_barang', form.nama_barang);
+    fd.append('batch', form.batch.toUpperCase());
+    fd.append('hu', form.hu);
+    fd.append('do_number', form.do_number);
+    fd.append('qty_system_pcs', form.qty_system_pcs);
+    fd.append('qty_fisik_pcs', form.qty_fisik_pcs);
+    fd.append('kategori_issue', form.kategori_issue);
+    fd.append('keterangan', form.keterangan);
+    fd.append('storage_tujuan', form.storage_tujuan);
+    if (form.created_at) {
+      fd.append('created_at', new Date(form.created_at).toISOString());
+    }
+
+    // Append foto jika ada
+    photos.forEach((p) => {
+      fd.append('photos', p.file);
+    });
 
     try {
       const res = await fetch('/api/issues', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
+        body: fd, // Browser otomatis set content-type multipart/form-data + boundary
       });
       const data = await res.json();
 
       if (data.success) {
         const issueId = data.data.issue_id as string;
-
-        // Upload photos jika ada
-        if (photos.length > 0) {
-          const uploadPromises = photos.map((_, idx) => uploadPhoto(idx, issueId));
-          const urls = (await Promise.all(uploadPromises)).filter(Boolean) as string[];
-
-          if (urls.length > 0) {
-            // Save photo URLs ke issue
-            await fetch(`/api/issues/${issueId}`, {
-              method: 'PATCH',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ photo_url: urls.join(','), action: 'update-photo' }),
-            });
-          }
-
-          const failCount = photos.length - urls.length;
-          if (failCount > 0) {
-            toast.warning(`Issue dibuat! ${failCount} dari ${photos.length} foto gagal diupload.`);
-          } else {
-            toast.success('Issue berhasil dibuat dengan foto!');
-          }
-        } else {
-          toast.success('Issue berhasil dibuat!');
-        }
-
+        toast.success('Issue berhasil dibuat!');
         router.push(`/issues/${issueId}`);
       } else if (data.error?.code === 'DUPLICATE_ISSUE') {
         // Backend duplicate check — tampilkan merge info
@@ -582,11 +543,14 @@ export default function NewIssuePage() {
           <div className="photo-grid">
             {photos.map((photo, idx) => (
               <div key={idx} style={{ position: 'relative' }}>
-                <img
+                <NextImage
                   src={photo.previewUrl}
                   alt={`Foto ${idx + 1}`}
+                  width={80}
+                  height={80}
+                  unoptimized
                   className="photo-thumb"
-                  style={{ opacity: photo.uploading ? 0.5 : 1 }}
+                  style={{ opacity: photo.uploading ? 0.5 : 1, width: '100%', height: '100%', objectFit: 'cover' }}
                 />
                 {photo.uploading && (
                   <div style={{

@@ -1,43 +1,66 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { AdminLayout } from '@/components/layout/AdminLayout';
 import { CZStatusBadge } from '@/components/ui/Badge';
 import { Modal } from '@/components/ui/Modal';
 import { useToast } from '@/components/ui/ToastProvider';
 import { CZRecord } from '@/types';
-import { formatDate, formatRelativeTime } from '@/lib/utils';
-import { CheckCircle, ChevronRight, Search, Filter, X } from 'lucide-react';
+import { formatRelativeTime } from '@/lib/utils';
+import { CheckCircle, Search, Filter, X } from 'lucide-react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useSupabaseRealtime } from '@/lib/realtime';
 
 export default function AdminCZPage() {
   const toast = useToast();
-  const [records, setRecords] = useState<CZRecord[]>([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
+
   const [status, setStatus] = useState('ALL');
   const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [showFilter, setShowFilter] = useState(false);
+  
   const [selectedCZ, setSelectedCZ] = useState<CZRecord | null>(null);
   const [showSolve, setShowSolve] = useState(false);
   const [storageTujuan, setStorageTujuan] = useState('');
   const [catatan, setCatatan] = useState('');
   const [solving, setSolving] = useState(false);
 
-  const fetchCZ = async () => {
-    setLoading(true);
-    const params = new URLSearchParams();
-    if (status !== 'ALL') params.set('status', status);
-    if (search) params.set('search', search);
-    if (dateFrom) params.set('date_from', dateFrom);
-    if (dateTo) params.set('date_to', dateTo);
-    const res = await fetch(`/api/cz?${params}`);
-    const data = await res.json();
-    if (data.success) setRecords(data.data);
-    setLoading(false);
-  };
+  // Debounced search logic (300ms)
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedSearch(search);
+    }, 300);
+    return () => clearTimeout(handler);
+  }, [search]);
 
-  useEffect(() => { fetchCZ(); }, [status, search, dateFrom, dateTo]);
+  // Query: CZ Records List
+  const { data: recordsData, isLoading, isFetching } = useQuery({
+    queryKey: ['cz-records', { status, search: debouncedSearch, dateFrom, dateTo }],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      if (status !== 'ALL') params.set('status', status);
+      if (debouncedSearch) params.set('search', debouncedSearch);
+      if (dateFrom) params.set('date_from', dateFrom);
+      if (dateTo) params.set('date_to', dateTo);
+      
+      const res = await fetch(`/api/cz?${params}`);
+      const data = await res.json();
+      if (!data.success) throw new Error(data.error?.message || 'Gagal');
+      return data.data as CZRecord[];
+    },
+    staleTime: 1000 * 30, // 30 detik
+  });
+
+  // Connect to Supabase Realtime
+  const realtimeKeys = useMemo(() => [
+    ['cz-records']
+  ], []);
+  useSupabaseRealtime('cz_records', realtimeKeys);
+
+  const records = recordsData || [];
 
   const resetFilter = () => {
     setSearch('');
@@ -62,19 +85,25 @@ export default function AdminCZPage() {
       return;
     }
     setSolving(true);
-    const res = await fetch(`/api/cz/${selectedCZ.cz_id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ storage_tujuan: storageTujuan, catatan_penyelesaian: catatan }),
-    });
-    const data = await res.json();
-    setSolving(false);
-    setShowSolve(false);
-    if (data.success) {
-      toast.success('CZ record berhasil diselesaikan!');
-      fetchCZ();
-    } else {
-      toast.error(data.error?.message ?? 'Gagal menyelesaikan CZ');
+    try {
+      const res = await fetch(`/api/cz/${selectedCZ.cz_id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ storage_tujuan: storageTujuan, catatan_penyelesaian: catatan }),
+      });
+      const data = await res.json();
+      setSolving(false);
+      setShowSolve(false);
+      if (data.success) {
+        toast.success('CZ record berhasil diselesaikan!');
+        // Invalidate cz-records query
+        queryClient.invalidateQueries({ queryKey: ['cz-records'] });
+      } else {
+        toast.error(data.error?.message ?? 'Gagal menyelesaikan CZ');
+      }
+    } catch {
+      toast.error('Gagal terhubung ke server');
+      setSolving(false);
     }
   };
 
@@ -84,7 +113,7 @@ export default function AdminCZPage() {
         <div>
           <h1 className="page-title">Clarification Zone (CZ)</h1>
           <p style={{ fontSize: 14, color: 'var(--color-text-muted)', marginTop: 2 }}>
-            Item yang diminta SAP ke area CZ
+            Item yang diminta SAP ke area CZ {isFetching && <span style={{ fontSize: 12, color: 'var(--color-primary)', marginLeft: 8 }}>• Memuat data...</span>}
           </p>
         </div>
       </div>
@@ -165,7 +194,7 @@ export default function AdminCZPage() {
             </tr>
           </thead>
           <tbody>
-            {loading ? (
+            {isLoading && records.length === 0 ? (
               Array(5).fill(null).map((_, i) => (
                 <tr key={i}>
                   {Array(7).fill(null).map((_, j) => (
@@ -194,7 +223,7 @@ export default function AdminCZPage() {
                 <td style={{ fontWeight: 700 }}>{record.qty_pcs}</td>
                 <td><CZStatusBadge status={record.status} /></td>
                 <td>
-                  <div style={{ fontSize: 13 }}>{record.created_by_name}</div>
+                  <div style={{ fontSize: 13 }}>{record.created_by_name ?? record.created_by}</div>
                   <div style={{ fontSize: 12, color: 'var(--color-text-muted)' }}>{formatRelativeTime(record.created_at)}</div>
                 </td>
                 <td>

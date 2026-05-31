@@ -187,6 +187,8 @@ export default function AdminUsersPage() {
                             <div style={{ position: 'fixed', inset: 0, zIndex: 10 }} onClick={() => setOpenMenu(null)} />
                             <div className="dropdown-menu" style={{ 
                               zIndex: 20,
+                              right: 0,
+                              left: 'auto',
                               ...(isLast ? { top: 'auto', bottom: 'calc(100% + 6px)' } : {})
                             }}>
                               <button className="dropdown-item" onClick={() => { setShowResetPIN(user); setNewPin(''); setConfirmPin(''); setOpenMenu(null); }}>
@@ -240,7 +242,6 @@ export default function AdminUsersPage() {
             <select className="select-field" value={addForm.role}
               onChange={(e) => setAddForm((f) => ({ ...f, role: e.target.value as UserRole }))}>
               <option value="USER">Staff (USER)</option>
-              <option value="SPV">Supervisor (SPV)</option>
               <option value="ADMIN">Admin (ADMIN)</option>
             </select>
           </div>

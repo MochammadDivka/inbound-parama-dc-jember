@@ -1,77 +1,80 @@
 'use client';
 
 import { useSession } from 'next-auth/react';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import Link from 'next/link';
-import { Plus, Search, ChevronRight, Edit2, Trash2, CheckCircle, HelpCircle, X } from 'lucide-react';
+import { Plus, Search, ChevronRight, Edit2, Trash2, HelpCircle } from 'lucide-react';
 import { UserLayout } from '@/components/layout/UserLayout';
 import { CZStatusBadge } from '@/components/ui/Badge';
 import { Modal } from '@/components/ui/Modal';
 import { useToast } from '@/components/ui/ToastProvider';
 import { CZRecord } from '@/types';
 import { formatRelativeTime } from '@/lib/utils';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useSupabaseRealtime } from '@/lib/realtime';
 
 export default function UserCZPage() {
   const { data: session } = useSession();
   const toast = useToast();
+  const queryClient = useQueryClient();
   
-  const [records, setRecords] = useState<CZRecord[]>([]);
-  const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'ALL' | 'OPEN' | 'SOLVED'>('ALL');
   const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [showMineOnly, setShowMineOnly] = useState(false);
-  const [summary, setSummary] = useState({ open: 0, solved: 0 });
   
   const [selectedCZ, setSelectedCZ] = useState<CZRecord | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
-  const fetchCZ = async () => {
-    setLoading(true);
-    try {
+  // Debounced search logic (300ms)
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedSearch(search);
+    }, 300);
+    return () => clearTimeout(handler);
+  }, [search]);
+
+  // Query 1: CZ Summary
+  const { data: summaryData } = useQuery({
+    queryKey: ['cz-summary', { mine: showMineOnly }],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      if (showMineOnly) params.set('mine', 'true');
+      const res = await fetch(`/api/cz/summary?${params}`);
+      const data = await res.json();
+      if (!data.success) throw new Error(data.error?.message || 'Gagal');
+      return data.data as { open: number; solved: number };
+    },
+    staleTime: 1000 * 30, // 30 detik
+  });
+
+  // Query 2: CZ Records List
+  const { data: recordsData, isLoading } = useQuery({
+    queryKey: ['cz-records', { mine: showMineOnly, filter, search: debouncedSearch }],
+    queryFn: async () => {
       const params = new URLSearchParams();
       if (showMineOnly) params.set('mine', 'true');
       if (filter !== 'ALL') params.set('status', filter);
-      if (search) params.set('search', search);
+      if (debouncedSearch) params.set('search', debouncedSearch);
       
       const res = await fetch(`/api/cz?${params}`);
       const data = await res.json();
-      if (data.success) {
-        setRecords(data.data);
-      }
-    } catch (err) {
-      console.error(err);
-      toast.error('Gagal mengambil data CZ');
-    } finally {
-      setLoading(false);
-    }
-  };
+      if (!data.success) throw new Error(data.error?.message || 'Gagal');
+      return data.data as CZRecord[];
+    },
+    staleTime: 1000 * 30, // 30 detik
+  });
 
-  const fetchSummary = async () => {
-    try {
-      const params = new URLSearchParams();
-      if (showMineOnly) params.set('mine', 'true');
-      const res = await fetch(`/api/cz?${params}`);
-      const data = await res.json();
-      if (data.success) {
-        const all: CZRecord[] = data.data;
-        setSummary({
-          open: all.filter((r) => r.status === 'OPEN').length,
-          solved: all.filter((r) => r.status === 'SOLVED').length,
-        });
-      }
-    } catch (err) {
-      console.error(err);
-    }
-  };
+  // Connect to Supabase Realtime
+  const realtimeKeys = useMemo(() => [
+    ['cz-records'],
+    ['cz-summary']
+  ], []);
+  useSupabaseRealtime('cz_records', realtimeKeys);
 
-  useEffect(() => {
-    fetchSummary();
-  }, [showMineOnly]);
-
-  useEffect(() => {
-    fetchCZ();
-  }, [filter, search, showMineOnly]);
+  const summary = summaryData || { open: 0, solved: 0 };
+  const records = recordsData || [];
 
   const handleDelete = async () => {
     if (!selectedCZ) return;
@@ -85,8 +88,9 @@ export default function UserCZPage() {
         toast.success(`CZ record ${selectedCZ.cz_id} berhasil dihapus!`);
         setSelectedCZ(null);
         setShowDeleteConfirm(false);
-        fetchCZ();
-        fetchSummary();
+        // Invalidate queries to trigger background updates
+        queryClient.invalidateQueries({ queryKey: ['cz-records'] });
+        queryClient.invalidateQueries({ queryKey: ['cz-summary'] });
       } else {
         toast.error(data.error?.message ?? 'Gagal menghapus CZ record');
       }
@@ -209,7 +213,7 @@ export default function UserCZPage() {
         </div>
 
         {/* List Grid */}
-        {loading ? (
+        {isLoading ? (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             {[1, 2, 3].map((i) => (
               <div key={i} className="skeleton" style={{ height: 110 }} />
@@ -229,7 +233,9 @@ export default function UserCZPage() {
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             {records.map((record) => {
-              const isOwner = record.created_by === session?.user.name;
+              const cleanString = (str: any) => String(str ?? '').trim().toLowerCase();
+              const isOwner = cleanString(record.created_by) === cleanString(session?.user.name) ||
+                              cleanString(record.created_by_name) === cleanString(session?.user.name);
               const isOpen = record.status === 'OPEN';
               
               return (

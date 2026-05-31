@@ -1,13 +1,15 @@
 'use client';
 
 import { useSession } from 'next-auth/react';
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import Link from 'next/link';
 import { Plus, FileText, AlertCircle, Search, ChevronRight } from 'lucide-react';
 import { UserLayout } from '@/components/layout/UserLayout';
 import { IssueStatusBadge, SelisihDisplay } from '@/components/ui/Badge';
 import { Issue, IssueStatus } from '@/types';
 import { formatRelativeTime } from '@/lib/utils';
+import { useQuery } from '@tanstack/react-query';
+import { useSupabaseRealtime } from '@/lib/realtime';
 
 const FILTER_TABS: { label: string; value: IssueStatus | 'ALL' }[] = [
   { label: 'Semua', value: 'ALL' },
@@ -18,55 +20,60 @@ const FILTER_TABS: { label: string; value: IssueStatus | 'ALL' }[] = [
 
 export default function UserDashboardPage() {
   const { data: session } = useSession();
-  const [issues, setIssues] = useState<Issue[]>([]);
-  const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<IssueStatus | 'ALL'>('ALL');
   const [search, setSearch] = useState('');
-  const [summary, setSummary] = useState({ open: 0, solved: 0 });
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [showMineOnly, setShowMineOnly] = useState(false);
 
-  const fetchIssues = useCallback(async () => {
-    setLoading(true);
-    const params = new URLSearchParams();
-    if (showMineOnly) params.set('mine', 'true');
-    if (filter !== 'ALL') params.set('status', filter);
-    if (search) params.set('search', search);
-    const res = await fetch(`/api/issues?${params}`, { cache: 'no-store' });
-    const data = await res.json();
-    if (data.success) {
-      setIssues(data.data);
-    }
-    setLoading(false);
-  }, [showMineOnly, filter, search]);
-
-  const fetchSummary = useCallback(async () => {
-    const params = new URLSearchParams({ limit: '100' });
-    if (showMineOnly) params.set('mine', 'true');
-    const res = await fetch(`/api/issues?${params}`, { cache: 'no-store' });
-    const data = await res.json();
-    if (data.success) {
-      const all: Issue[] = data.data;
-      setSummary({
-        open: all.filter((i) => i.status === 'OPEN').length,
-        solved: all.filter((i) => i.status === 'SOLVED').length,
-      });
-    }
-  }, [showMineOnly]);
-
-  useEffect(() => { fetchSummary(); }, [fetchSummary]);
-  useEffect(() => { fetchIssues(); }, [fetchIssues]);
-
-  // Auto-refresh when user comes back to this tab (after viewing issue detail)
+  // Debounced search logic (300ms)
   useEffect(() => {
-    const handleVisibility = () => {
-      if (document.visibilityState === 'visible') {
-        fetchIssues();
-        fetchSummary();
-      }
-    };
-    document.addEventListener('visibilitychange', handleVisibility);
-    return () => document.removeEventListener('visibilitychange', handleVisibility);
-  }, [fetchIssues, fetchSummary]);
+    const handler = setTimeout(() => {
+      setDebouncedSearch(search);
+    }, 300);
+    return () => clearTimeout(handler);
+  }, [search]);
+
+  // Query 1: Dashboard Summary (Counts)
+  const { data: summaryData } = useQuery({
+    queryKey: ['issues-summary', { mine: showMineOnly }],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      if (showMineOnly) params.set('mine', 'true');
+      const res = await fetch(`/api/issues/summary?${params}`);
+      const data = await res.json();
+      if (!data.success) throw new Error(data.error?.message || 'Gagal mengambil ringkasan');
+      return data.data as { open: number; solved: number };
+    },
+    staleTime: 1000 * 30, // 30 detik
+  });
+
+  // Query 2: Issues List
+  const { data: issuesData, isLoading } = useQuery({
+    queryKey: ['issues', { mine: showMineOnly, filter, search: debouncedSearch }],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      if (showMineOnly) params.set('mine', 'true');
+      if (filter !== 'ALL') params.set('status', filter);
+      if (debouncedSearch) params.set('search', debouncedSearch);
+      
+      const res = await fetch(`/api/issues?${params}`);
+      const data = await res.json();
+      if (!data.success) throw new Error(data.error?.message || 'Gagal mengambil data issue');
+      return data.data as Issue[];
+    },
+    staleTime: 1000 * 30, // 30 detik
+  });
+
+  // Hubungkan ke Supabase Realtime untuk sinkronisasi otomatis
+  // Daftarkan key query yang harus di-invalidate saat ada perubahan database
+  const realtimeKeys = useMemo(() => [
+    ['issues'],
+    ['issues-summary']
+  ], []);
+  useSupabaseRealtime('issues', realtimeKeys);
+
+  const summary = summaryData || { open: 0, solved: 0 };
+  const issues = issuesData || [];
 
   return (
     <UserLayout>
@@ -180,7 +187,7 @@ export default function UserDashboardPage() {
         </div>
 
         {/* Issue Cards */}
-        {loading ? (
+        {isLoading ? (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             {[1, 2, 3].map((i) => (
               <div key={i} className="skeleton" style={{ height: 110 }} />

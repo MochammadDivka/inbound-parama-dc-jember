@@ -76,7 +76,7 @@ export default function AdminLoginPage() {
           padding: '32px 28px',
           boxShadow: '0 24px 64px rgba(0,0,0,0.35)',
         }}>
-          <h2 style={{ fontSize: 20, fontWeight: 700, marginBottom: 4 }}>Login Admin / SPV</h2>
+          <h2 style={{ fontSize: 20, fontWeight: 700, marginBottom: 4 }}>Login Admin</h2>
           <p style={{ fontSize: 13, color: 'var(--color-text-muted)', marginBottom: 24 }}>
             Gunakan email dan password akun Anda
           </p>

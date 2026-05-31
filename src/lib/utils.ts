@@ -36,3 +36,12 @@ export function formatDateForInput(dateStr: string): string {
 export function classNames(...classes: (string | boolean | undefined | null)[]): string {
   return classes.filter(Boolean).join(' ');
 }
+
+export function getGoogleDriveThumbnail(url: string, size = 'w320'): string {
+  if (!url) return '';
+  const match = url.match(/[?&]id=([^&]+)/);
+  if (match && match[1]) {
+    return `https://drive.google.com/thumbnail?id=${match[1]}&sz=${size}`;
+  }
+  return url;
+}

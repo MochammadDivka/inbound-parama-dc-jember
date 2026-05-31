@@ -7,8 +7,9 @@ import { IssueStatusBadge, SelisihDisplay } from '@/components/ui/Badge';
 import { Modal } from '@/components/ui/Modal';
 import { useToast } from '@/components/ui/ToastProvider';
 import { Issue } from '@/types';
-import { formatDate } from '@/lib/utils';
+import { formatDate, getGoogleDriveThumbnail } from '@/lib/utils';
 import { ArrowLeft, Edit2, CheckCircle, XCircle, Clock, AlertCircle } from 'lucide-react';
+import Image from 'next/image';
 
 interface MergeHistoryEntry {
   timestamp: string;
@@ -288,9 +289,11 @@ export default function AdminIssueDetailPage({ params }: { params: { id: string 
                     }}
                     onClick={() => setSelectedPhoto(url)}
                   >
-                    <img
-                      src={url}
+                    <Image
+                      src={getGoogleDriveThumbnail(url)}
                       alt={`Bukti ${idx + 1}`}
+                      width={120}
+                      height={120}
                       style={{ width: '100%', height: '100%', objectFit: 'cover', transition: 'transform 0.15s ease' }}
                       className="photo-thumb"
                     />
@@ -451,9 +454,11 @@ export default function AdminIssueDetailPage({ params }: { params: { id: string 
               background: '#F3F4F6', border: '1px solid var(--color-border)',
               display: 'flex', alignItems: 'center', justifyContent: 'center'
             }}>
-              <img
+              <Image
                 src={selectedPhoto}
                 alt="Foto Bukti Detail"
+                width={800}
+                height={600}
                 style={{ maxWidth: '100%', maxHeight: '70vh', objectFit: 'contain' }}
               />
             </div>

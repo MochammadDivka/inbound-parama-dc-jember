@@ -1,19 +1,39 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import { isGASEnabled, gasRequest } from '@/lib/gas-client';
 import { ACCEPTED_IMAGE_TYPES, MAX_PHOTO_SIZE_MB, MAX_PHOTOS } from '@/lib/constants';
-
-const isDriveEnabled = isGASEnabled;
+import { google } from 'googleapis';
+import { Readable } from 'stream';
 
 const MAX_SIZE_BYTES = MAX_PHOTO_SIZE_MB * 1024 * 1024;
 
+const DRIVE_FOLDER_ID = process.env.GOOGLE_DRIVE_FOLDER_ID ?? '';
+
+/**
+ * Buat Google Drive client menggunakan service account dari env.
+ */
+function getDriveClient() {
+  const serviceAccountJson = process.env.GOOGLE_SERVICE_ACCOUNT_JSON;
+  if (!serviceAccountJson) throw new Error('GOOGLE_SERVICE_ACCOUNT_JSON tidak dikonfigurasi');
+
+  const creds = JSON.parse(Buffer.from(serviceAccountJson, 'base64').toString('utf-8'));
+
+  const auth = new google.auth.GoogleAuth({
+    credentials: creds,
+    scopes: ['https://www.googleapis.com/auth/drive.file'],
+  });
+
+  return google.drive({ version: 'v3', auth });
+}
+
+const isDriveEnabled = !!process.env.GOOGLE_SERVICE_ACCOUNT_JSON && !!DRIVE_FOLDER_ID;
+
 /**
  * POST /api/upload/photo
- * Upload photo evidence for an issue to Google Drive
+ * Upload foto bukti issue ke Google Drive via service account (langsung, tanpa GAS)
  * FormData fields:
  *   - photos: File[] (max 3, max 5MB each, JPG/PNG/WEBP)
- *   - issue_id: string (used for filename)
+ *   - issue_id: string (digunakan untuk nama file)
  */
 export async function POST(request: NextRequest) {
   const session = await getServerSession(authOptions);
@@ -29,7 +49,8 @@ export async function POST(request: NextRequest) {
         success: false,
         error: {
           code: 'DRIVE_NOT_CONFIGURED',
-          message: 'Upload foto belum dikonfigurasi. Set GOOGLE_APPS_SCRIPT_URL di environment variables.',
+          message:
+            'Upload foto belum dikonfigurasi. Set GOOGLE_SERVICE_ACCOUNT_JSON dan GOOGLE_DRIVE_FOLDER_ID di environment variables.',
         },
       },
       { status: 503 }
@@ -61,88 +82,128 @@ export async function POST(request: NextRequest) {
       { status: 400 }
     );
 
-  // Validate all files before processing any
+  // Validasi semua file sebelum proses
   for (const file of files) {
     if (!ACCEPTED_IMAGE_TYPES.includes(file.type))
-      return NextResponse.json(
-        { success: false, error: { code: 'INVALID_FILE_TYPE', message: `Format tidak didukung: ${file.type}. Gunakan JPG, PNG, atau WEBP.` } },
-        { status: 400 }
-      );
-    if (file.size > MAX_SIZE_BYTES)
-      return NextResponse.json(
-        { success: false, error: { code: 'FILE_TOO_LARGE', message: `Ukuran file maksimal ${MAX_PHOTO_SIZE_MB}MB. File "${file.name}" terlalu besar.` } },
-        { status: 400 }
-      );
-  }
-
-  const uploadedResults: Array<{ fileId: string; webViewUrl: string; thumbnailUrl: string }> = [];
-
-  // Upload files sequentially to avoid Drive API rate limits
-  for (const file of files) {
-    try {
-      // Konversi File ke base64
-      const arrayBuffer = await file.arrayBuffer();
-      const buffer = Buffer.from(arrayBuffer);
-      const base64 = buffer.toString('base64');
-      
-      const ext = file.name.split('.').pop()?.toLowerCase() ?? 'jpg';
-      const timestamp = Date.now();
-      const filename = `${issueId}_photo_${timestamp}.${ext}`;
-
-      const gasRes = await gasRequest<{ fileId: string; photo_url: string }>({
-        action: 'uploadPhoto',
-        method: 'POST',
-        body: {
-          fileBase64: base64,
-          mimeType: file.type,
-          filename,
-        },
-      });
-
-      if (!gasRes.success || !gasRes.data) {
-        console.error('=== DRIVE UPLOAD FAILED ERROR FROM GAS ===', gasRes.error);
-        return NextResponse.json(
-          {
-            success: false,
-            error: {
-              code: 'UPLOAD_FAILED',
-              message: `Gagal mengupload "${file.name}": ${gasRes.error?.message ?? 'GAS upload error'}`,
-            },
-          },
-          { status: 500 }
-        );
-      }
-
-      uploadedResults.push({
-        fileId: gasRes.data.fileId,
-        webViewUrl: gasRes.data.photo_url,
-        thumbnailUrl: gasRes.data.photo_url,
-      });
-    } catch (err) {
-      console.error('=== DRIVE UPLOAD FAILED ERROR ===', err);
       return NextResponse.json(
         {
           success: false,
           error: {
-            code: 'UPLOAD_FAILED',
-            message: `Gagal mengupload "${file.name}": ${(err as Error).message}`,
+            code: 'INVALID_FILE_TYPE',
+            message: `Format tidak didukung: ${file.type}. Gunakan JPG, PNG, atau WEBP.`,
           },
         },
-        { status: 500 }
+        { status: 400 }
       );
+    if (file.size > MAX_SIZE_BYTES)
+      return NextResponse.json(
+        {
+          success: false,
+          error: {
+            code: 'FILE_TOO_LARGE',
+            message: `Ukuran file maksimal ${MAX_PHOTO_SIZE_MB}MB. File "${file.name}" terlalu besar.`,
+          },
+        },
+        { status: 400 }
+      );
+  }
+
+  let drive: ReturnType<typeof getDriveClient>;
+  try {
+    drive = getDriveClient();
+  } catch (err) {
+    console.error('[upload/photo] Gagal membuat Drive client:', err);
+    return NextResponse.json(
+      {
+        success: false,
+        error: { code: 'DRIVE_AUTH_ERROR', message: 'Konfigurasi service account tidak valid' },
+      },
+      { status: 500 }
+    );
+  }
+
+  // Upload foto secara paralel
+  let uploadedResults: Array<{ fileId: string; webViewUrl: string }> = [];
+  const uploadedFileIds: string[] = [];
+  try {
+    const uploadPromises = files.map(async (file) => {
+      const arrayBuffer = await file.arrayBuffer();
+      const buffer = Buffer.from(arrayBuffer);
+
+      const ext = file.name.split('.').pop()?.toLowerCase() ?? 'jpg';
+      const timestamp = Date.now();
+      const filename = `${issueId}_photo_${timestamp}.${ext}`;
+
+      // Upload ke Google Drive via googleapis
+      const response = await drive.files.create({
+        requestBody: {
+          name: filename,
+          parents: [DRIVE_FOLDER_ID],
+        },
+        media: {
+          mimeType: file.type,
+          body: Readable.from(buffer),
+        },
+        fields: 'id, name, webViewLink',
+      });
+
+      const fileId = response.data.id;
+      if (!fileId) throw new Error('Drive tidak mengembalikan file ID');
+      
+      // Catat ID file untuk rollback jika ada kegagalan pada file lain
+      uploadedFileIds.push(fileId);
+
+      // Buat file dapat diakses publik (anyone with link can view)
+      await drive.permissions.create({
+        fileId,
+        requestBody: {
+          role: 'reader',
+          type: 'anyone',
+        },
+      });
+
+      // URL untuk thumbnail/preview langsung (direct image URL)
+      const webViewUrl = `https://drive.google.com/uc?export=view&id=${fileId}`;
+
+      return { fileId, webViewUrl };
+    });
+
+    uploadedResults = await Promise.all(uploadPromises);
+  } catch (err) {
+    console.error('[upload/photo] Gagal upload file secara paralel:', err);
+    // Jalankan cleanup rollback untuk menghapus file sampah di Drive
+    for (const fid of uploadedFileIds) {
+      try {
+        await drive.files.delete({ fileId: fid });
+        console.log(`[upload/photo] Rollback: file sampah ${fid} berhasil dibersihkan`);
+      } catch (cleanErr) {
+        console.error(`[upload/photo] Rollback: Gagal membersihkan file sampah ${fid}:`, cleanErr);
+      }
     }
+    return NextResponse.json(
+      {
+        success: false,
+        error: {
+          code: 'UPLOAD_FAILED',
+          message: `Gagal mengupload foto: ${(err as Error).message}`,
+        },
+      },
+      { status: 500 }
+    );
   }
 
   const urls = uploadedResults.map((r) => r.webViewUrl);
-  const thumbnails = uploadedResults.map((r) => r.thumbnailUrl);
 
   return NextResponse.json({
     success: true,
     data: {
       urls,
-      thumbnails,
+      thumbnails: urls.map(url => {
+        const idMatch = url.match(/[?&]id=([^&]+)/);
+        return idMatch ? `https://drive.google.com/thumbnail?id=${idMatch[1]}&sz=w320` : url;
+      }),
       fileIds: uploadedResults.map((r) => r.fileId),
-      // Comma-separated URLs for storage in the Issue.photo_url field
+      // Comma-separated URLs untuk disimpan di field Issue.photo_url
       photo_url: urls.join(','),
     },
     message: `${urls.length} foto berhasil diupload ke Google Drive`,

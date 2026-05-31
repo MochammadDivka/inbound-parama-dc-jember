@@ -1,15 +1,17 @@
 'use client';
 
-import { Suspense } from 'react';
-import { useEffect, useState, useCallback } from 'react';
+import { Suspense, useMemo } from 'react';
+import { useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { AdminLayout } from '@/components/layout/AdminLayout';
 import { IssueStatusBadge, SelisihDisplay } from '@/components/ui/Badge';
 import { Issue } from '@/types';
-import { formatRelativeTime, formatDate, formatDateShort } from '@/lib/utils';
+import { formatDateShort } from '@/lib/utils';
 import { ISSUE_CATEGORIES } from '@/lib/constants';
 import { Search, Filter, ChevronDown, ChevronUp, X, Eye } from 'lucide-react';
 import Link from 'next/link';
+import { useQuery, keepPreviousData } from '@tanstack/react-query';
+import { useSupabaseRealtime } from '@/lib/realtime';
 
 const STATUS_OPTIONS = [
   { value: 'ALL', label: 'Semua Status' },
@@ -22,12 +24,9 @@ const STATUS_OPTIONS = [
 function AdminIssuesContent() {
   const searchParams = useSearchParams();
 
-  const [issues, setIssues] = useState<Issue[]>([]);
-  const [total, setTotal] = useState(0);
-  const [loading, setLoading] = useState(true);
   const [showFilter, setShowFilter] = useState(false);
-
   const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [status, setStatus] = useState<string>(searchParams.get('status') ?? 'ALL');
   const [kategori, setKategori] = useState('ALL');
   const [dateFrom, setDateFrom] = useState('');
@@ -37,40 +36,63 @@ function AdminIssuesContent() {
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
 
   const LIMIT = 20;
-  const totalPages = Math.ceil(total / LIMIT);
 
-  const fetchIssues = useCallback(async () => {
-    setLoading(true);
-    const params = new URLSearchParams();
-    if (search) params.set('search', search);
-    if (status !== 'ALL') params.set('status', status);
-    if (kategori !== 'ALL') params.set('kategori', kategori);
-    if (dateFrom) params.set('date_from', dateFrom);
-    if (dateTo) params.set('date_to', dateTo);
-    if (sortField) params.set('sort', sortField);
-    if (sortOrder) params.set('order', sortOrder);
-    params.set('page', String(page));
-    params.set('limit', String(LIMIT));
-
-    const res = await fetch(`/api/issues?${params}`, { cache: 'no-store' });
-    const data = await res.json();
-    if (data.success) {
-      setIssues(data.data);
-      setTotal(data.total);
-    }
-    setLoading(false);
-  }, [search, status, kategori, dateFrom, dateTo, page, sortField, sortOrder]);
-
-  useEffect(() => { fetchIssues(); }, [fetchIssues]);
-
-  // Auto-refresh when admin returns to this tab (after viewing issue detail)
+  // Debounce search input (300ms)
   useEffect(() => {
-    const handleVisibility = () => {
-      if (document.visibilityState === 'visible') fetchIssues();
-    };
-    document.addEventListener('visibilitychange', handleVisibility);
-    return () => document.removeEventListener('visibilitychange', handleVisibility);
-  }, [fetchIssues]);
+    const handler = setTimeout(() => {
+      setDebouncedSearch(search);
+      setPage(1);
+    }, 300);
+    return () => clearTimeout(handler);
+  }, [search]);
+
+  // Query issues list using TanStack Query
+  const { data: queryData, isLoading, isFetching } = useQuery({
+    queryKey: ['issues', {
+      search: debouncedSearch,
+      status,
+      kategori,
+      dateFrom,
+      dateTo,
+      page,
+      sortField,
+      sortOrder,
+      limit: LIMIT
+    }],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      if (debouncedSearch) params.set('search', debouncedSearch);
+      if (status !== 'ALL') params.set('status', status);
+      if (kategori !== 'ALL') params.set('kategori', kategori);
+      if (dateFrom) params.set('date_from', dateFrom);
+      if (dateTo) params.set('date_to', dateTo);
+      if (sortField) params.set('sort', sortField);
+      if (sortOrder) params.set('order', sortOrder);
+      params.set('page', String(page));
+      params.set('limit', String(LIMIT));
+
+      const res = await fetch(`/api/issues?${params}`);
+      const data = await res.json();
+      if (!data.success) throw new Error(data.error?.message || 'Gagal mengambil data issues');
+      return {
+        data: data.data as Issue[],
+        total: data.total as number,
+        totalPages: data.totalPages as number
+      };
+    },
+    staleTime: 1000 * 30, // 30 detik
+    placeholderData: keepPreviousData, // UX: tetap tampilkan data lama saat loading page baru
+  });
+
+  // Hubungkan ke Supabase Realtime untuk reload otomatis jika ada perubahan issues di DB
+  const realtimeKeys = useMemo(() => [
+    ['issues']
+  ], []);
+  useSupabaseRealtime('issues', realtimeKeys);
+
+  const issues = queryData?.data || [];
+  const total = queryData?.total || 0;
+  const totalPages = queryData?.totalPages || 0;
 
   const handleSort = (field: string) => {
     if (sortField === field) {
@@ -103,7 +125,7 @@ function AdminIssuesContent() {
         <div>
           <h1 className="page-title">Issues</h1>
           <p style={{ fontSize: 14, color: 'var(--color-text-muted)', marginTop: 2 }}>
-            {total} issue ditemukan
+            {total} issue ditemukan {isFetching && <span style={{ fontSize: 12, color: 'var(--color-primary)', marginLeft: 8 }}>• Memuat data...</span>}
           </p>
         </div>
       </div>
@@ -117,7 +139,7 @@ function AdminIssuesContent() {
             type="search"
             placeholder="Cari SKU, nama barang, atau HU..."
             value={search}
-            onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+            onChange={(e) => setSearch(e.target.value)}
             style={{ paddingLeft: 42 }}
           />
         </div>
@@ -157,18 +179,18 @@ function AdminIssuesContent() {
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 12 }}>
             <div>
               <label className="label">Kategori</label>
-              <select className="select-field" value={kategori} onChange={(e) => setKategori(e.target.value)}>
+              <select className="select-field" value={kategori} onChange={(e) => { setKategori(e.target.value); setPage(1); }}>
                 <option value="ALL">Semua Kategori</option>
                 {ISSUE_CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
               </select>
             </div>
             <div>
               <label className="label">Tanggal Dari</label>
-              <input className="input-field" type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} />
+              <input className="input-field" type="date" value={dateFrom} onChange={(e) => { setDateFrom(e.target.value); setPage(1); }} />
             </div>
             <div>
               <label className="label">Tanggal Sampai</label>
-              <input className="input-field" type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} />
+              <input className="input-field" type="date" value={dateTo} onChange={(e) => { setDateTo(e.target.value); setPage(1); }} />
             </div>
           </div>
         </div>
@@ -202,7 +224,7 @@ function AdminIssuesContent() {
             </tr>
           </thead>
           <tbody>
-            {loading ? (
+            {isLoading && issues.length === 0 ? (
               Array(8).fill(null).map((_, i) => (
                 <tr key={i}>
                   {Array(8).fill(null).map((_, j) => (

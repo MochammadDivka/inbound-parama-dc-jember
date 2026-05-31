@@ -72,6 +72,7 @@ export default function NewCZPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (loading) return; // Tangkal klik ganda instan
     if (!validate()) return;
     setLoading(true);
     try {

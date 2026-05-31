@@ -1,47 +1,53 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useMemo } from 'react';
 import { AdminLayout } from '@/components/layout/AdminLayout';
 import { IssueStatusBadge, SelisihDisplay } from '@/components/ui/Badge';
 import { DashboardSummary, Issue, ActivityLog } from '@/types';
-import { formatRelativeTime, formatDate, formatDateShort } from '@/lib/utils';
+import { formatRelativeTime, formatDateShort } from '@/lib/utils';
 import Link from 'next/link';
-import { FileText, AlertCircle, Users, TrendingUp, ExternalLink, ChevronRight } from 'lucide-react';
+import { FileText, ExternalLink, ChevronRight } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
+import { useSupabaseRealtime } from '@/lib/realtime';
 
 export default function AdminDashboardPage() {
-  const [summary, setSummary] = useState<DashboardSummary | null>(null);
-  const [recentActivity, setRecentActivity] = useState<ActivityLog[]>([]);
-  const [recentIssues, setRecentIssues] = useState<Issue[]>([]);
-  const [loading, setLoading] = useState(true);
+  // Query 1: Admin Dashboard Summary and Recent Activities
+  const { data: dashboardData, isLoading: isDashboardLoading } = useQuery({
+    queryKey: ['admin-dashboard'],
+    queryFn: async () => {
+      const res = await fetch('/api/dashboard');
+      const data = await res.json();
+      if (!data.success) throw new Error(data.error?.message || 'Gagal mengambil data dashboard');
+      return data.data as { summary: DashboardSummary; recent_activity: ActivityLog[] };
+    },
+    staleTime: 1000 * 30, // 30 detik
+  });
 
-  const fetchData = useCallback(async () => {
-    const [dashRes, issueRes] = await Promise.all([
-      fetch('/api/dashboard', { cache: 'no-store' }),
-      fetch('/api/issues?limit=5', { cache: 'no-store' }),
-    ]);
-    const dashData = await dashRes.json();
-    const issueData = await issueRes.json();
+  // Query 2: Recent 5 Issues
+  const { data: recentIssuesData, isLoading: isIssuesLoading } = useQuery({
+    queryKey: ['issues', { limit: 5 }],
+    queryFn: async () => {
+      const res = await fetch('/api/issues?limit=5');
+      const data = await res.json();
+      if (!data.success) throw new Error(data.error?.message || 'Gagal mengambil data issue terbaru');
+      return data.data as Issue[];
+    },
+    staleTime: 1000 * 30, // 30 detik
+  });
 
-    if (dashData.success) {
-      setSummary(dashData.data.summary);
-      setRecentActivity(dashData.data.recent_activity ?? []);
-    }
-    if (issueData.success) {
-      setRecentIssues(issueData.data);
-    }
-    setLoading(false);
-  }, []);
+  // Hubungkan ke Supabase Realtime untuk automatic refetching saat ada log aktivitas atau issue baru
+  const realtimeKeys = useMemo(() => [
+    ['admin-dashboard'],
+    ['issues', { limit: 5 }]
+  ], []);
 
-  useEffect(() => { fetchData(); }, [fetchData]);
+  useSupabaseRealtime('activity_logs', realtimeKeys);
+  useSupabaseRealtime('issues', realtimeKeys);
 
-  // Auto-refresh when admin returns to this tab
-  useEffect(() => {
-    const handleVisibility = () => {
-      if (document.visibilityState === 'visible') fetchData();
-    };
-    document.addEventListener('visibilitychange', handleVisibility);
-    return () => document.removeEventListener('visibilitychange', handleVisibility);
-  }, [fetchData]);
+  const loading = isDashboardLoading || isIssuesLoading;
+  const summary = dashboardData?.summary || null;
+  const recentActivity = dashboardData?.recent_activity || [];
+  const recentIssues = recentIssuesData || [];
 
   const actionIcons: Record<string, string> = {
     issue_created: '🆕',
@@ -85,8 +91,8 @@ export default function AdminDashboardPage() {
 
       {/* Summary Cards */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 16, marginBottom: 24 }}>
-        {loading ? (
-          [1, 2, 3, 4].map((i) => (
+        {loading && !summary ? (
+          [1, 2, 3, 4, 5].map((i) => (
             <div key={i} className="skeleton" style={{ height: 100 }} />
           ))
         ) : (
@@ -158,7 +164,7 @@ export default function AdminDashboardPage() {
                 </tr>
               </thead>
               <tbody>
-                {loading ? (
+                {loading && recentIssues.length === 0 ? (
                   Array(5).fill(null).map((_, i) => (
                     <tr key={i}>
                       {Array(6).fill(null).map((_, j) => (
@@ -232,7 +238,7 @@ export default function AdminDashboardPage() {
           {/* Recent Activity */}
           <div className="card" style={{ padding: 20, flex: 1 }}>
             <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 14 }}>Aktivitas Terbaru</h3>
-            {loading ? (
+            {loading && recentActivity.length === 0 ? (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                 {[1, 2, 3, 4].map((i) => <div key={i} className="skeleton" style={{ height: 44 }} />)}
               </div>
