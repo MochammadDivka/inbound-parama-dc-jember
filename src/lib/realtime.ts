@@ -16,6 +16,8 @@ export function useSupabaseRealtime(
   const queryClient = useQueryClient();
 
   useEffect(() => {
+    if (!supabaseBrowser) return;
+
     // Buat channel subscription
     const channel = supabaseBrowser
       .channel(`public-${table}-changes`)
@@ -40,7 +42,9 @@ export function useSupabaseRealtime(
 
     // Cleanup subscription
     return () => {
-      supabaseBrowser.removeChannel(channel);
+      if (supabaseBrowser) {
+        supabaseBrowser.removeChannel(channel);
+      }
     };
   }, [table, queryKeysToInvalidate, queryClient]);
 }
