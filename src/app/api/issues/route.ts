@@ -17,6 +17,9 @@ function getDriveClient() {
   if (!serviceAccountJson) throw new Error('GOOGLE_SERVICE_ACCOUNT_JSON tidak dikonfigurasi');
 
   const creds = JSON.parse(Buffer.from(serviceAccountJson, 'base64').toString('utf-8'));
+  if (creds.private_key) {
+    creds.private_key = creds.private_key.replace(/\\n/g, '\n');
+  }
 
   const auth = new google.auth.GoogleAuth({
     credentials: creds,
